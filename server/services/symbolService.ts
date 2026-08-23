@@ -1,4 +1,10 @@
 import { SymbolSpecification } from '../../src/types.js';
+import {
+  CANONICAL_MARKETS,
+  normalizeCanonicalSymbol,
+  isCentSymbol,
+  mapCanonicalToBroker,
+} from '../../src/utils/symbolUtils.js';
 
 export class SymbolService {
   private symbols: Map<string, SymbolSpecification> = new Map();
@@ -35,14 +41,14 @@ export class SymbolService {
         defaultSpreadPoints: 20, // 0.20 standard spread
       },
       {
-        symbol: 'XAUUSD.CENT',
-        name: 'Spot Gold Cent Account',
-        category: 'METALS',
-        contractSize: 100,
+        symbol: 'BTCUSD',
+        name: 'Bitcoin / US Dollar',
+        category: 'CRYPTO',
+        contractSize: 1, // 1 BTC
         tickSize: 0.01,
-        tickValue: 0.01, // Cent scaling
+        tickValue: 0.01, // $0.01 per 0.01 price move ($1 per $1 move for 1 BTC)
         volumeMin: 0.01,
-        volumeMax: 100.0,
+        volumeMax: 10.0,
         volumeStep: 0.01,
         minLot: 0.01,
         maxLot: 100.0,
@@ -50,14 +56,14 @@ export class SymbolService {
         maxTestLot: 0.01,
         digits: 2,
         point: 0.01,
-        stopsLevel: 30,
-        freezeLevel: 10,
+        stopsLevel: 200,
+        freezeLevel: 50,
         tradeMode: 'FULL_ACCESS',
-        currencyBase: 'XAU',
-        currencyProfit: 'USC',
-        currencyMargin: 'USC',
-        maxSpreadPoints: 45,
-        defaultSpreadPoints: 20,
+        currencyBase: 'BTC',
+        currencyProfit: 'USD',
+        currencyMargin: 'USD',
+        maxSpreadPoints: 5000, // $50 spread max
+        defaultSpreadPoints: 1500, // $15 spread
       },
       {
         symbol: 'EURUSD',
@@ -134,45 +140,19 @@ export class SymbolService {
         maxSpreadPoints: 25,
         defaultSpreadPoints: 12,
       },
-      {
-        symbol: 'BTCUSD',
-        name: 'Bitcoin / US Dollar',
-        category: 'CRYPTO',
-        contractSize: 1, // 1 BTC
-        tickSize: 0.01,
-        tickValue: 0.01, // $0.01 per 0.01 price move ($1 per $1 move for 1 BTC)
-        volumeMin: 0.01,
-        volumeMax: 10.0,
-        volumeStep: 0.01,
-        minLot: 0.01,
-        maxLot: 10.0,
-        lotStep: 0.01,
-        maxTestLot: 0.01,
-        digits: 2,
-        point: 0.01,
-        stopsLevel: 200,
-        freezeLevel: 50,
-        tradeMode: 'FULL_ACCESS',
-        currencyBase: 'BTC',
-        currencyProfit: 'USD',
-        currencyMargin: 'USD',
-        maxSpreadPoints: 5000, // $50 spread max
-        defaultSpreadPoints: 1500, // $15 spread
-      },
     ];
 
     defaultSpecs.forEach((spec) => {
       this.symbols.set(spec.symbol, spec);
       this.symbols.set(spec.symbol.toUpperCase(), spec);
     });
-
-    // Also register lowercase alias for cent
-    const centSpec = this.symbols.get('XAUUSD.CENT')!;
-    this.symbols.set('XAUUSD.cent', centSpec);
   }
 
   /**
-   * Resolves any broker symbol variant or string to its canonical symbol and execution spec
+   * Resolves any broker symbol variant or alias string to its canonical symbol and execution spec (SSOT)
+   * Example:
+   *   "XAUUSD.cent" -> canonicalSymbol: "XAUUSD", executionSymbol: "XAUUSD.cent", isCentAccount: true
+   *   "GOLD.cent"   -> canonicalSymbol: "XAUUSD", executionSymbol: "GOLD.cent", isCentAccount: true
    */
   public resolveSymbol(inputSymbol: string): {
     canonicalSymbol: string;
@@ -181,29 +161,18 @@ export class SymbolService {
     spec: SymbolSpecification;
   } {
     const raw = (inputSymbol || 'XAUUSD').trim();
-    const upper = raw.toUpperCase();
+    const canonical = normalizeCanonicalSymbol(raw);
+    const isCent = isCentSymbol(raw);
+    const baseSpec = this.getSymbol(canonical);
 
-    let canonical = 'XAUUSD';
-    let isCent = false;
-
-    if (upper.includes('BTC')) {
-      canonical = 'BTCUSD';
-    } else if (upper.includes('EURUSD')) {
-      canonical = 'EURUSD';
-    } else if (upper.includes('GBPUSD')) {
-      canonical = 'GBPUSD';
-    } else if (upper.includes('USDJPY')) {
-      canonical = 'USDJPY';
-    } else if (upper.includes('XAU') || upper.includes('GOLD')) {
-      if (upper.includes('CENT') || upper.endsWith('.C')) {
-        canonical = 'XAUUSD.CENT';
-        isCent = true;
-      } else {
-        canonical = 'XAUUSD';
-      }
-    }
-
-    const spec = this.getSymbol(canonical);
+    const spec: SymbolSpecification = isCent
+      ? {
+          ...baseSpec,
+          tickValue: canonical === 'XAUUSD' ? 0.01 : baseSpec.tickValue,
+          currencyProfit: canonical === 'XAUUSD' ? 'USC' : baseSpec.currencyProfit,
+          currencyMargin: canonical === 'XAUUSD' ? 'USC' : baseSpec.currencyMargin,
+        }
+      : baseSpec;
 
     return {
       canonicalSymbol: canonical,
@@ -215,68 +184,23 @@ export class SymbolService {
 
   /**
    * Maps a canonical symbol (e.g. BTCUSD, XAUUSD, EURUSD) to the broker-specific symbol.
-   * Leverages the broker account's naming convention or suffix (e.g., .edge, .c, m).
+   * Leverages the broker account's naming convention or suffix (e.g., .cent, .edge, .c, m).
    */
-  public mapCanonicalToBroker(canonicalSymbol: string, accountSymbolOrBroker?: string): string {
-    const cleanCanonical = canonicalSymbol ? canonicalSymbol.trim().toUpperCase() : 'XAUUSD';
-    if (!accountSymbolOrBroker || !accountSymbolOrBroker.trim()) {
-      return cleanCanonical === 'XAUUSD.CENT' ? 'XAUUSD.cent' : cleanCanonical;
-    }
-
-    const accountSym = accountSymbolOrBroker.trim();
-
-    // If accountSym directly matches the canonical base
-    const upperAccount = accountSym.toUpperCase();
-    if (upperAccount.startsWith(cleanCanonical) || (cleanCanonical === 'BTCUSD' && upperAccount.includes('BTC'))) {
-      return accountSym;
-    }
-
-    // Detect common broker suffixes from account symbol (e.g., "XAUUSD.edge" -> suffix is ".edge")
-    const matchSuffix = accountSym.match(/\.(edge|pro|raw|ecn|c|cent|std|micro)$/i) || accountSym.match(/(m|c)$/i);
-    const suffix = matchSuffix ? matchSuffix[0] : '';
-
-    if (cleanCanonical === 'XAUUSD.CENT') {
-      if (suffix.toLowerCase() === '.c' || suffix.toLowerCase() === 'c') {
-        return `XAUUSD${suffix}`;
-      }
-      return 'XAUUSD.cent';
-    }
-
-    if (suffix) {
-      return `${cleanCanonical}${suffix}`;
-    }
-
-    return cleanCanonical;
+  public mapCanonicalToBroker(canonicalSymbol: string, accountSymbolOrBroker?: string | null): string {
+    return mapCanonicalToBroker(canonicalSymbol, accountSymbolOrBroker);
   }
 
   public getSymbol(symbol: string): SymbolSpecification {
-    const clean = (symbol || 'XAUUSD').trim().toUpperCase();
-    if (this.symbols.has(clean)) {
-      return this.symbols.get(clean)!;
+    const canonical = normalizeCanonicalSymbol(symbol);
+    if (this.symbols.has(canonical)) {
+      return this.symbols.get(canonical)!;
     }
-
-    // Try without prefix/suffix
-    for (const [key, val] of this.symbols.entries()) {
-      const upperKey = key.toUpperCase();
-      if (clean.includes(upperKey) || upperKey.includes(clean)) {
-        return val;
-      }
-    }
-
-    // Fallback based on asset class keywords
-    if (clean.includes('BTC')) return this.symbols.get('BTCUSD')!;
-    if (clean.includes('EUR')) return this.symbols.get('EURUSD')!;
-    if (clean.includes('GBP')) return this.symbols.get('GBPUSD')!;
-    if (clean.includes('JPY')) return this.symbols.get('USDJPY')!;
-    if (clean.includes('CENT') || clean.endsWith('.C')) return this.symbols.get('XAUUSD.CENT')!;
-
-    // Default fallback to Gold spec
     return this.symbols.get('XAUUSD')!;
   }
 
   public getAllSymbols(): SymbolSpecification[] {
-    // Return unique canonical specifications
-    const canonicalKeys = ['XAUUSD', 'XAUUSD.CENT', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTCUSD'];
+    // Return only the canonical user-facing markets
+    const canonicalKeys = ['XAUUSD', 'BTCUSD', 'EURUSD', 'GBPUSD', 'USDJPY'];
     return canonicalKeys.map((key) => this.symbols.get(key)!).filter(Boolean);
   }
 

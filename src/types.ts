@@ -902,6 +902,8 @@ export interface TradingAccountData {
   currency?: string;
   workerId?: string | null;
   symbol?: string | null;
+  canonicalSymbol?: string | null;
+  brokerSymbol?: string | null;
   executionEnabled: boolean;
   workerOnline: boolean;
   lastHeartbeat?: string | null;
@@ -930,6 +932,8 @@ export interface AdminTradingAccountRecord {
   currency?: string;
   workerId?: string | null;
   symbol: string;
+  canonicalSymbol?: string;
+  brokerSymbol?: string;
   executionEnabled: boolean;
   workerOnline: boolean;
   lastHeartbeat?: string | null;

@@ -394,7 +394,11 @@ mt5WorkerRouter.post('/heartbeat', async (req, res) => {
     }
 
     if (symbol && typeof symbol === 'string' && symbol.trim()) {
-      updateData.symbol = symbol.trim();
+      const rawSym = symbol.trim();
+      const resolved = symbolService.resolveSymbol(rawSym);
+      updateData.brokerSymbol = rawSym;
+      updateData.canonicalSymbol = resolved.canonicalSymbol;
+      updateData.symbol = resolved.canonicalSymbol;
     }
 
     if (balance !== undefined && typeof balance === 'number' && !isNaN(balance)) {
@@ -462,7 +466,9 @@ mt5WorkerRouter.post('/heartbeat', async (req, res) => {
         workerId: updatedAccount.workerId,
         accountNumber: updatedAccount.accountNumber,
         brokerServer: updatedAccount.brokerServer,
-        symbol: updatedAccount.symbol || 'XAUUSD',
+        symbol: updatedAccount.canonicalSymbol || updatedAccount.symbol || 'XAUUSD',
+        canonicalSymbol: updatedAccount.canonicalSymbol || updatedAccount.symbol || 'XAUUSD',
+        brokerSymbol: updatedAccount.brokerSymbol || updatedAccount.symbol || 'XAUUSD',
         workerOnline: true,
         executionEnabled: updatedAccount.executionEnabled ?? false,
         lastHeartbeat: timestampIso,

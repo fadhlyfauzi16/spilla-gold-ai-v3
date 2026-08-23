@@ -13,6 +13,7 @@ import {
   UTCTimestamp,
 } from 'lightweight-charts';
 import { Candle, SupportResistance, Mt5PayloadIndicators } from '../types';
+import { normalizeCanonicalSymbol } from '../utils/symbolUtils';
 
 interface Mt5ChartProps {
   candles: Candle[];
@@ -37,7 +38,7 @@ export const Mt5Chart: React.FC<Mt5ChartProps> = ({
   onTimeframeChange,
   pivotPoints,
   currentPrice,
-  symbol = 'XAUUSD.cent',
+  symbol = 'XAUUSD',
   mt5Indicators,
   tradePlanLevels,
 }) => {
@@ -365,7 +366,7 @@ export const Mt5Chart: React.FC<Mt5ChartProps> = ({
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2 pr-3 border-r border-gray-800">
             <span className="w-2.5 h-2.5 rounded-full bg-[#D4AF37] animate-pulse" />
-            <span className="font-extrabold text-white text-sm tracking-wider">{symbol}</span>
+            <span className="font-extrabold text-white text-sm tracking-wider">{normalizeCanonicalSymbol(symbol)}</span>
             <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded font-bold">
               MT5 TERMINAL
             </span>
@@ -464,7 +465,7 @@ export const Mt5Chart: React.FC<Mt5ChartProps> = ({
 
         {/* Legend Overlay */}
         <div className="absolute top-3 left-4 pointer-events-none flex flex-wrap items-center gap-3 font-mono text-[11px] text-gray-400 bg-[#0B0E14]/90 p-2 rounded-md border border-gray-800 backdrop-blur-sm z-10">
-          <span className="text-white font-bold">{symbol}</span>
+          <span className="text-white font-bold">{normalizeCanonicalSymbol(symbol)}</span>
           <span>TF: <span className="text-[#D4AF37] font-bold">{timeframe}</span></span>
           {currentPrice && (
             <span>PRICE: <span className="text-emerald-400 font-bold">${currentPrice.toFixed(2)}</span></span>

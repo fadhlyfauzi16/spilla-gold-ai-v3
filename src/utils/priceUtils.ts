@@ -3,6 +3,8 @@
  * Normalizes MT5 Cent Account prices (XAUUSD.cent) to standard market prices.
  */
 
+import { normalizeCanonicalSymbol, isCentSymbol } from './symbolUtils.js';
+
 /**
  * Normalizes price from MT5 Cent Account (e.g. XAUUSD.cent) to standard USD price.
  * Divides by 100 ONLY if the symbol is a genuine cent symbol (e.g. XAUUSD.CENT, .cent, .c) and price > 10000.
@@ -10,24 +12,15 @@
  */
 export function normalizeCentPrice(price: number | undefined | null, symbol: string = 'XAUUSD'): number {
   if (price === undefined || price === null || isNaN(price)) return 0;
-  const sym = (symbol || 'XAUUSD').trim().toLowerCase();
-  
-  // Crypto, Forex, and Standard symbols must NEVER have cent division applied
-  if (
-    sym.includes('btc') ||
-    sym.includes('crypto') ||
-    sym.includes('eur') ||
-    sym.includes('gbp') ||
-    sym.includes('jpy') ||
-    sym.includes('usd') && !sym.includes('cent') && !sym.endsWith('.c')
-  ) {
+  const canonical = normalizeCanonicalSymbol(symbol);
+
+  // If canonical is not gold (BTC, EUR, GBP, JPY), never apply cent division
+  if (canonical !== 'XAUUSD') {
     return Number(price);
   }
 
-  // Cent scaling only applies to Gold/XAU cent symbols (e.g. XAUUSD.cent, GOLD.c) where price is reported in cents (>10000)
-  const isGoldCentSymbol = (sym.includes('xau') || sym.includes('gold')) && (sym.includes('.cent') || sym.endsWith('.c') || sym.includes('cent'));
-  
-  if (isGoldCentSymbol && price > 10000) {
+  // Cent scaling only applies to Gold cent symbols where price is reported in cents (>10000)
+  if (isCentSymbol(symbol) && price > 10000) {
     return Number((price / 100).toFixed(2));
   }
   return Number(price);
@@ -35,15 +28,10 @@ export function normalizeCentPrice(price: number | undefined | null, symbol: str
 
 /**
  * Formats symbol label cleanly for user display
- * e.g. "XAUUSD.cent" -> "XAUUSD (Cent Account)"
+ * e.g. "XAUUSD.cent" -> "XAUUSD"
  */
 export function formatSymbolLabel(symbol: string = 'XAUUSD'): string {
-  if (!symbol) return 'XAUUSD';
-  if (symbol.toLowerCase().includes('.cent') || symbol.toLowerCase().endsWith('.c')) {
-    const base = symbol.replace(/\.cent$/i, '').replace(/\.c$/i, '').toUpperCase();
-    return `${base} (Cent Account)`;
-  }
-  return symbol.toUpperCase();
+  return normalizeCanonicalSymbol(symbol);
 }
 
 /**

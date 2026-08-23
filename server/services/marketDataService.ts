@@ -58,12 +58,11 @@ export interface MarketDataCache {
 class MarketDataService {
   public readonly instanceId: string = `MDS-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
   private caches: Map<string, MarketDataCache> = new Map();
-  private readonly supportedSymbols = ['XAUUSD', 'XAUUSD.CENT', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTCUSD'];
+  private readonly supportedSymbols = ['XAUUSD', 'BTCUSD', 'EURUSD', 'GBPUSD', 'USDJPY'];
   private readonly supportedTimeframes = ['M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN'];
 
   private symbolPrices: Map<string, number> = new Map([
     ['XAUUSD', 4470.00],
-    ['XAUUSD.CENT', 4470.00],
     ['BTCUSD', 77284.50],
     ['EURUSD', 1.08500],
     ['GBPUSD', 1.29500],

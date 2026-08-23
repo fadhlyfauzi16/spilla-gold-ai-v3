@@ -40,6 +40,8 @@ tradeRouter.post('/validate-gate', requireAuth, async (req: any, res: any) => {
     const canonicalSymbol = symbolService.resolveSymbol(inputSymbol).canonicalSymbol;
     payload.symbol = canonicalSymbol;
     payload.canonicalSymbol = canonicalSymbol;
+    const accountBrokerSym = tradingAccount?.brokerSymbol || tradingAccount?.symbol;
+    payload.brokerSymbol = payload.brokerSymbol || symbolService.mapCanonicalToBroker(canonicalSymbol, accountBrokerSym);
 
     const gateResult = tradeService.validateExecutionGate(payload, {
       tradingAccount,
@@ -60,7 +62,9 @@ tradeRouter.post('/validate-gate', requireAuth, async (req: any, res: any) => {
             workerId: tradingAccount.workerId,
             workerOnline: isWorkerOnline(tradingAccount.lastHeartbeat),
             executionEnabled: Boolean(tradingAccount.executionEnabled),
-            symbol: tradingAccount.symbol,
+            symbol: tradingAccount.canonicalSymbol || tradingAccount.symbol || 'XAUUSD',
+            canonicalSymbol: tradingAccount.canonicalSymbol || tradingAccount.symbol || 'XAUUSD',
+            brokerSymbol: tradingAccount.brokerSymbol || tradingAccount.symbol || 'XAUUSD.cent',
           }
         : null,
     });
@@ -142,10 +146,11 @@ tradeRouter.post('/execute', requireAuth, async (req: any, res: any) => {
     // 2. Resolve canonical symbol and broker execution symbol
     const inputSymbol = payload.canonicalSymbol || payload.symbol || 'XAUUSD';
     const canonicalSymbol = symbolService.resolveSymbol(inputSymbol).canonicalSymbol;
+    const accountBrokerSym = tradingAccount.brokerSymbol || tradingAccount.symbol;
     const brokerSymbol =
       payload.brokerSymbol && payload.brokerSymbol.trim()
         ? payload.brokerSymbol.trim()
-        : symbolService.mapCanonicalToBroker(canonicalSymbol, tradingAccount.symbol);
+        : symbolService.mapCanonicalToBroker(canonicalSymbol, accountBrokerSym);
 
     // 3. Execute order through authoritative server-side execution & risk gate
     // CRITICAL: order.symbol must ALWAYS be the canonical SPILLA GOLD symbol (e.g. BTCUSD, XAUUSD, EURUSD)

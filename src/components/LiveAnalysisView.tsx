@@ -13,6 +13,7 @@ import {
   CanonicalExecutionParameters,
 } from '../types';
 import { normalizeCentPrice, formatSymbolLabel } from '../utils/priceUtils';
+import { normalizeCanonicalSymbol, isCentSymbol, CANONICAL_SYMBOLS } from '../utils/symbolUtils';
 import {
   Bot,
   RefreshCw,
@@ -1413,25 +1414,30 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
             <div className="flex items-center gap-1.5 bg-[#0B0E14] px-3 py-1.5 rounded-lg border border-gray-800 text-xs shrink-0">
               <span className="text-gray-400 font-bold text-[11px]">SYMBOL:</span>
               <select
-                value={selectedSymbol}
+                value={normalizeCanonicalSymbol(selectedSymbol)}
                 onChange={(e) => {
-                  setSelectedSymbol(e.target.value);
+                  setSelectedSymbol(normalizeCanonicalSymbol(e.target.value));
                 }}
                 className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer"
               >
                 {symbols.length > 0 ? (
-                  symbols.map((s) => (
-                    <option key={s.symbol} value={s.symbol} className="bg-[#121620] text-white">
-                      {s.symbol} ({s.category})
-                    </option>
-                  ))
+                  symbols
+                    .filter((s) => !isCentSymbol(s.symbol) || s.symbol === 'XAUUSD')
+                    .map((s) => {
+                      const canonical = normalizeCanonicalSymbol(s.symbol);
+                      return (
+                        <option key={canonical} value={canonical} className="bg-[#121620] text-white">
+                          {canonical} ({s.category || (canonical.includes('BTC') ? 'Crypto' : canonical.includes('XAU') ? 'Metals' : 'Forex')})
+                        </option>
+                      );
+                    })
                 ) : (
                   <>
                     <option value="XAUUSD" className="bg-[#121620] text-white">
                       XAUUSD (Metals)
                     </option>
-                    <option value="XAUUSD.CENT" className="bg-[#121620] text-white">
-                      XAUUSD.CENT (Cent Metals)
+                    <option value="BTCUSD" className="bg-[#121620] text-white">
+                      BTCUSD (Crypto)
                     </option>
                     <option value="EURUSD" className="bg-[#121620] text-white">
                       EURUSD (Forex)
@@ -1441,9 +1447,6 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                     </option>
                     <option value="USDJPY" className="bg-[#121620] text-white">
                       USDJPY (Forex)
-                    </option>
-                    <option value="BTCUSD" className="bg-[#121620] text-white">
-                      BTCUSD (Crypto)
                     </option>
                   </>
                 )}

@@ -25,6 +25,8 @@ export interface TradingAccountRecord {
   currency: string;
   workerId?: string | null;
   symbol?: string | null;
+  canonicalSymbol?: string | null;
+  brokerSymbol?: string | null;
   executionEnabled: boolean;
   workerOnline: boolean;
   lastHeartbeat?: Date | null;

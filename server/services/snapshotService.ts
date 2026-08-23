@@ -129,10 +129,10 @@ class SnapshotService {
     const livePrice = marketDataService.getCurrentPrice('XAUUSD');
     this.latestSnapshot = {
       id: 'snap-init-1',
-      imageDataUrl: generateDefaultBase64ChartImage('XAUUSD.cent', livePrice),
+      imageDataUrl: generateDefaultBase64ChartImage('XAUUSD', livePrice),
       timestamp: now.toISOString(),
       timeFormatted: now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-      symbol: 'XAUUSD.cent',
+      symbol: 'XAUUSD',
       timeframe: 'H1',
       currentPrice: livePrice,
     };
@@ -206,7 +206,7 @@ class SnapshotService {
       imageDataUrl: snapshotData.imageDataUrl,
       timestamp: now.toISOString(),
       timeFormatted,
-      symbol: snapshotData.symbol || 'XAUUSD.cent',
+      symbol: resolved.canonicalSymbol,
       timeframe: snapshotData.timeframe || 'H1',
       currentPrice: normalizedPrice,
     };

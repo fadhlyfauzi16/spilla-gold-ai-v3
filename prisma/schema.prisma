@@ -41,6 +41,23 @@ enum PlanStatusEnum {
   EXPIRED
 }
 
+enum CreditLedgerType {
+  TOPUP
+  AI_USAGE
+  ADMIN_ADJUSTMENT
+  REFUND
+  IMPORT_ADJUSTMENT
+  RESTORE
+  RECONCILIATION_REPAIR
+}
+
+enum TopUpStatusEnum {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
 model User {
   id          String   @id @default(uuid())
   fullName    String
@@ -51,6 +68,116 @@ model User {
   accountType String?  @default("Trader Individu")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  creditWallet   CreditWallet?
+  creditLedgers  CreditLedger[]
+  creditTopUps   CreditTopUp[]
+  aiAnalysisLogs AiAnalysisLog[]
+}
+
+model CreditWallet {
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance       Float          @default(0.0)
+  totalTopUp    Float          @default(0.0)
+  totalUsed     Float          @default(0.0)
+  totalAnalysis Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  ledgers       CreditLedger[]
+  topups        CreditTopUp[]
+}
+
+model CreditLedger {
+  id            String           @id @default(uuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  walletId      String
+  wallet        CreditWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type          CreditLedgerType @default(TOPUP)
+  amount        Float
+  balanceBefore Float
+  balanceAfter  Float
+  referenceId   String?
+  description   String
+  performedBy   String?
+  createdAt     DateTime         @default(now())
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([createdAt])
+}
+
+model CreditTopUp {
+  id              String          @id @default(uuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  walletId        String?
+  wallet          CreditWallet?   @relation(fields: [walletId], references: [id])
+  amountIdr       Float
+  creditRequested Float
+  paymentMethod   String          @default("MANUAL_BANK_TRANSFER")
+  bankName        String          @default("BCA (Bank Central Asia)")
+  accountNumber   String          @default("0771360059")
+  accountName     String          @default("Sri Hartono")
+  status          TopUpStatusEnum @default(PENDING)
+  referenceNotes  String?
+  adminNotes      String?
+  confirmedBy     String?
+  confirmedByName String?
+  confirmedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AiAnalysisLog {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol       String   @default("XAUUSD")
+  timeframe    String   @default("H1")
+  analysisType String   @default("LIVE_AI_ANALYSIS")
+  creditCost   Float    @default(100.0)
+  status       String   @default("SUCCESS")
+  errorMessage String?
+  snapshotId   String?
+  signalId     String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model CreditPaymentSetting {
+  id            String   @id @default(uuid())
+  bankName      String   @default("BCA (Bank Central Asia)")
+  accountNumber String   @default("0771360059")
+  accountName   String   @default("Sri Hartono")
+  instructions  String
+  isActive      Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
+}
+
+model CreditAuditLog {
+  id            String   @id @default(uuid())
+  adminUserId   String
+  action        String
+  targetUserId  String?
+  amount        Float?
+  balanceBefore Float?
+  balanceAfter  Float?
+  referenceId   String?
+  metadata      String?
+  createdAt     DateTime @default(now())
+
+  @@index([adminUserId])
+  @@index([targetUserId])
+  @@index([createdAt])
 }
 
 model TradingAccount {

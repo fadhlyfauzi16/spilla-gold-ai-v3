@@ -2,10 +2,15 @@
 
 export type CreditTransactionType =
   | 'TOPUP'
+  | 'AI_USAGE'
   | 'ANALYSIS'
   | 'REFUND'
   | 'ADMIN_ADD'
   | 'ADMIN_DEDUCT'
+  | 'ADMIN_ADJUSTMENT'
+  | 'IMPORT_ADJUSTMENT'
+  | 'RESTORE'
+  | 'RECONCILIATION_REPAIR'
   | 'PROMO'
   | 'ADJUSTMENT';
 
@@ -55,6 +60,7 @@ export interface TopUpRequest {
 export interface CreditTransaction {
   id: string; // e.g. CTX-20260820-000001
   userId: string;
+  walletId?: string;
   userName?: string;
   email?: string;
   type: CreditTransactionType;
@@ -65,6 +71,7 @@ export interface CreditTransaction {
   balanceAfter: number;
   referenceId?: string; // TopUp ID or Analysis ID
   description: string;
+  performedBy?: string;
   adminId?: string;
   adminName?: string;
   createdAt: string;
@@ -96,6 +103,7 @@ export interface PaymentSettings {
 }
 
 export interface AdminCreditStats {
+  totalUsersCount?: number;
   totalCreditSoldIdr: number;
   creditInUserWallets: number;
   totalCreditUsed: number;
@@ -103,3 +111,76 @@ export interface AdminCreditStats {
   pendingTopUpCount: number;
   pendingTopUpAmountIdr: number;
 }
+
+export interface CreditReconciliationItem {
+  userId: string;
+  userName: string;
+  email: string;
+  walletBalance: number;
+  expectedBalance: number;
+  difference: number;
+  totalPositive: number;
+  totalNegative: number;
+  ledgerCount: number;
+  status: 'MATCH' | 'MISMATCH';
+  lastTransactionDate?: string;
+}
+
+export interface CreditReconciliationReport {
+  totalWallets: number;
+  matchedCount: number;
+  mismatchedCount: number;
+  totalWalletBalance: number;
+  totalLedgerBalance: number;
+  reconciledAt: string;
+  items: CreditReconciliationItem[];
+}
+
+export interface ExcelImportConflict {
+  sheet: string;
+  id: string;
+  description: string;
+  currentValue: any;
+  importedValue: any;
+}
+
+export interface ExcelImportInvalidRow {
+  sheet: string;
+  rowNumber: number;
+  reason: string;
+  data: any;
+}
+
+export interface ExcelImportPreview {
+  fileName: string;
+  totalRowsParsed: number;
+  sheets: {
+    name: string;
+    rowCount: number;
+  }[];
+  newRecordsCount: number;
+  existingRecordsCount: number;
+  conflictsCount: number;
+  invalidRecordsCount: number;
+  newUsers: any[];
+  newWallets: any[];
+  newLedgers: any[];
+  newTopups: any[];
+  newAiUsage: any[];
+  conflicts: ExcelImportConflict[];
+  invalidRows: ExcelImportInvalidRow[];
+}
+
+export interface ExcelImportCommitResult {
+  success: boolean;
+  mode: 'MERGE' | 'RESTORE';
+  importedUsersCount: number;
+  importedWalletsCount: number;
+  importedLedgersCount: number;
+  importedTopupsCount: number;
+  importedAiUsageCount: number;
+  auditLogId?: string;
+  timestamp: string;
+  message: string;
+}
+

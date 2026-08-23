@@ -50,6 +50,558 @@ export interface TradingAccountCredentialRecord {
   updatedAt: Date;
 }
 
+export interface CreditWalletRecord {
+  id: string;
+  userId: string;
+  balance: number;
+  totalTopUp: number;
+  totalUsed: number;
+  totalAnalysis: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreditLedgerRecord {
+  id: string;
+  userId: string;
+  walletId: string;
+  type: 'TOPUP' | 'AI_USAGE' | 'ADMIN_ADJUSTMENT' | 'REFUND' | 'IMPORT_ADJUSTMENT' | 'RESTORE' | 'RECONCILIATION_REPAIR';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  referenceId?: string | null;
+  description: string;
+  performedBy?: string | null;
+  createdAt: Date;
+}
+
+export interface CreditTopUpRecord {
+  id: string;
+  userId: string;
+  walletId?: string | null;
+  amountIdr: number;
+  creditRequested: number;
+  paymentMethod: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED';
+  referenceNotes?: string | null;
+  adminNotes?: string | null;
+  confirmedBy?: string | null;
+  confirmedByName?: string | null;
+  confirmedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AiAnalysisLogRecord {
+  id: string;
+  userId: string;
+  symbol: string;
+  timeframe: string;
+  analysisType: string;
+  creditCost: number;
+  status: string;
+  errorMessage?: string | null;
+  snapshotId?: string | null;
+  signalId?: string | null;
+  createdAt: Date;
+}
+
+export interface CreditPaymentSettingRecord {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  instructions: string;
+  isActive: boolean;
+  updatedAt: Date;
+}
+
+export interface CreditAuditLogRecord {
+  id: string;
+  adminUserId: string;
+  action: string;
+  targetUserId?: string | null;
+  amount?: number | null;
+  balanceBefore?: number | null;
+  balanceAfter?: number | null;
+  referenceId?: string | null;
+  metadata?: string | null;
+  createdAt: Date;
+}
+
+// Memory fallback store for CreditWallet
+class MemoryCreditWalletStore {
+  private wallets: CreditWalletRecord[] = [];
+
+  constructor() {
+    this.seedDefaults();
+  }
+
+  private seedDefaults() {
+    const now = new Date();
+    this.wallets = [
+      {
+        id: 'wal-usr-admin-001',
+        userId: 'usr-admin-001',
+        balance: 100000.0,
+        totalTopUp: 100000.0,
+        totalUsed: 0.0,
+        totalAnalysis: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'wal-usr-trader-002',
+        userId: 'usr-trader-002',
+        balance: 25000.0,
+        totalTopUp: 25000.0,
+        totalUsed: 0.0,
+        totalAnalysis: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  }
+
+  async count(args?: { where?: any }): Promise<number> {
+    if (!args?.where) return this.wallets.length;
+    const { userId } = args.where;
+    return this.wallets.filter((w) => {
+      if (userId && w.userId !== userId) return false;
+      return true;
+    }).length;
+  }
+
+  async findUnique(args: { where: { userId?: string; id?: string } }): Promise<CreditWalletRecord | null> {
+    const { userId, id } = args.where;
+    if (userId) {
+      return this.wallets.find((w) => w.userId === userId) || null;
+    }
+    if (id) {
+      return this.wallets.find((w) => w.id === id) || null;
+    }
+    return null;
+  }
+
+  async findFirst(args?: { where?: any }): Promise<CreditWalletRecord | null> {
+    if (!args?.where) return this.wallets[0] || null;
+    const { userId, id } = args.where;
+    return this.wallets.find((w) => {
+      if (userId && w.userId !== userId) return false;
+      if (id && w.id !== id) return false;
+      return true;
+    }) || null;
+  }
+
+  async findMany(args?: { where?: any; orderBy?: any }): Promise<CreditWalletRecord[]> {
+    let list = [...this.wallets];
+    if (args?.where) {
+      const { userId } = args.where;
+      list = list.filter((w) => {
+        if (userId && w.userId !== userId) return false;
+        return true;
+      });
+    }
+    if (args?.orderBy?.balance === 'desc') {
+      list.sort((a, b) => b.balance - a.balance);
+    } else if (args?.orderBy?.balance === 'asc') {
+      list.sort((a, b) => a.balance - b.balance);
+    }
+    return list;
+  }
+
+  async create(args: { data: any }): Promise<CreditWalletRecord> {
+    const now = new Date();
+    const existing = this.wallets.find((w) => w.userId === args.data.userId);
+    if (existing) {
+      return existing; // idempotency protection: never overwrite existing
+    }
+    const newWallet: CreditWalletRecord = {
+      id: args.data.id || `wal-${args.data.userId || Date.now()}`,
+      userId: args.data.userId,
+      balance: args.data.balance !== undefined ? Number(args.data.balance) : 0,
+      totalTopUp: args.data.totalTopUp !== undefined ? Number(args.data.totalTopUp) : (args.data.balance || 0),
+      totalUsed: args.data.totalUsed !== undefined ? Number(args.data.totalUsed) : 0,
+      totalAnalysis: args.data.totalAnalysis !== undefined ? Number(args.data.totalAnalysis) : 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.wallets.push(newWallet);
+    return newWallet;
+  }
+
+  async update(args: { where: { userId?: string; id?: string }; data: any }): Promise<CreditWalletRecord> {
+    const idx = this.wallets.findIndex((w) => {
+      if (args.where.userId && w.userId === args.where.userId) return true;
+      if (args.where.id && w.id === args.where.id) return true;
+      return false;
+    });
+    if (idx === -1) {
+      throw new Error(`CreditWallet not found for update`);
+    }
+    const existing = this.wallets[idx];
+    const updated: CreditWalletRecord = {
+      ...existing,
+      ...args.data,
+      balance: args.data.balance !== undefined ? Number(args.data.balance) : existing.balance,
+      totalTopUp: args.data.totalTopUp !== undefined ? Number(args.data.totalTopUp) : existing.totalTopUp,
+      totalUsed: args.data.totalUsed !== undefined ? Number(args.data.totalUsed) : existing.totalUsed,
+      totalAnalysis: args.data.totalAnalysis !== undefined ? Number(args.data.totalAnalysis) : existing.totalAnalysis,
+      updatedAt: new Date(),
+    };
+    this.wallets[idx] = updated;
+    return updated;
+  }
+
+  async upsert(args: { where: { userId: string }; create: any; update: any }): Promise<CreditWalletRecord> {
+    const existing = this.wallets.find((w) => w.userId === args.where.userId);
+    if (existing) {
+      return this.update({ where: { userId: args.where.userId }, data: args.update });
+    }
+    return this.create({ data: { ...args.create, userId: args.where.userId } });
+  }
+
+  async delete(args: { where: { userId?: string; id?: string } }): Promise<CreditWalletRecord> {
+    const idx = this.wallets.findIndex((w) => {
+      if (args.where.userId && w.userId === args.where.userId) return true;
+      if (args.where.id && w.id === args.where.id) return true;
+      return false;
+    });
+    if (idx === -1) {
+      throw new Error(`CreditWallet not found for delete`);
+    }
+    return this.wallets.splice(idx, 1)[0];
+  }
+}
+
+// Memory fallback store for CreditLedger
+class MemoryCreditLedgerStore {
+  private ledgers: CreditLedgerRecord[] = [];
+
+  constructor() {
+    this.seedDefaults();
+  }
+
+  private seedDefaults() {
+    const now = new Date(Date.now() - 86400000);
+    this.ledgers = [
+      {
+        id: 'CLG-INIT-ADMIN',
+        userId: 'usr-admin-001',
+        walletId: 'wal-usr-admin-001',
+        type: 'TOPUP',
+        amount: 100000.0,
+        balanceBefore: 0.0,
+        balanceAfter: 100000.0,
+        referenceId: 'INIT-ADMIN-ALLOCATION',
+        description: 'Initial Master Admin AI Credit Allocation',
+        performedBy: 'SYSTEM',
+        createdAt: now,
+      },
+      {
+        id: 'CLG-INIT-TRADER',
+        userId: 'usr-trader-002',
+        walletId: 'wal-usr-trader-002',
+        type: 'TOPUP',
+        amount: 25000.0,
+        balanceBefore: 0.0,
+        balanceAfter: 25000.0,
+        referenceId: 'INIT-TRADER-ALLOCATION',
+        description: 'Welcome Bonus AI Credit',
+        performedBy: 'SYSTEM',
+        createdAt: now,
+      },
+    ];
+  }
+
+  async count(args?: { where?: any }): Promise<number> {
+    if (!args?.where) return this.ledgers.length;
+    const { userId, type } = args.where;
+    return this.ledgers.filter((l) => {
+      if (userId && l.userId !== userId) return false;
+      if (type && l.type !== type) return false;
+      return true;
+    }).length;
+  }
+
+  async findMany(args?: { where?: any; orderBy?: any; take?: number; skip?: number }): Promise<CreditLedgerRecord[]> {
+    let list = [...this.ledgers];
+    if (args?.where) {
+      const { userId, type, walletId } = args.where;
+      list = list.filter((l) => {
+        if (userId && l.userId !== userId) return false;
+        if (walletId && l.walletId !== walletId) return false;
+        if (type && l.type !== type) return false;
+        return true;
+      });
+    }
+    if (args?.orderBy?.createdAt === 'asc') {
+      list.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    } else {
+      list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    }
+    if (args?.skip) {
+      list = list.slice(args.skip);
+    }
+    if (args?.take) {
+      list = list.slice(0, args.take);
+    }
+    return list;
+  }
+
+  async create(args: { data: any }): Promise<CreditLedgerRecord> {
+    const newLedger: CreditLedgerRecord = {
+      id: args.data.id || `CLG-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      userId: args.data.userId,
+      walletId: args.data.walletId || `wal-${args.data.userId}`,
+      type: args.data.type || 'TOPUP',
+      amount: Number(args.data.amount),
+      balanceBefore: Number(args.data.balanceBefore),
+      balanceAfter: Number(args.data.balanceAfter),
+      referenceId: args.data.referenceId || null,
+      description: args.data.description || '',
+      performedBy: args.data.performedBy || null,
+      createdAt: args.data.createdAt ? new Date(args.data.createdAt) : new Date(),
+    };
+    this.ledgers.push(newLedger);
+    return newLedger;
+  }
+
+  async createMany(args: { data: any[] }): Promise<{ count: number }> {
+    let count = 0;
+    for (const item of args.data) {
+      await this.create({ data: item });
+      count++;
+    }
+    return { count };
+  }
+}
+
+// Memory fallback store for CreditTopUp
+class MemoryCreditTopUpStore {
+  private topups: CreditTopUpRecord[] = [];
+
+  constructor() {
+    this.seedDefaults();
+  }
+
+  private seedDefaults() {
+    const now = new Date(Date.now() - 43200000);
+    this.topups = [
+      {
+        id: 'TOPUP-20260820-000001',
+        userId: 'usr-trader-002',
+        walletId: 'wal-usr-trader-002',
+        amountIdr: 25000,
+        creditRequested: 25000,
+        paymentMethod: 'MANUAL_BANK_TRANSFER',
+        bankName: 'BCA (Bank Central Asia)',
+        accountNumber: '0771360059',
+        accountName: 'Sri Hartono',
+        status: 'CONFIRMED',
+        referenceNotes: 'AIMS-TRADER-INITIAL',
+        adminNotes: 'Confirmed by Admin',
+        confirmedBy: 'usr-admin-001',
+        confirmedByName: 'Master Admin SPILLA',
+        confirmedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  }
+
+  async count(args?: { where?: any }): Promise<number> {
+    if (!args?.where) return this.topups.length;
+    const { userId, status } = args.where;
+    return this.topups.filter((t) => {
+      if (userId && t.userId !== userId) return false;
+      if (status && t.status !== status) return false;
+      return true;
+    }).length;
+  }
+
+  async findUnique(args: { where: { id: string } }): Promise<CreditTopUpRecord | null> {
+    return this.topups.find((t) => t.id === args.where.id) || null;
+  }
+
+  async findMany(args?: { where?: any; orderBy?: any }): Promise<CreditTopUpRecord[]> {
+    let list = [...this.topups];
+    if (args?.where) {
+      const { userId, status } = args.where;
+      list = list.filter((t) => {
+        if (userId && t.userId !== userId) return false;
+        if (status && t.status !== status) return false;
+        return true;
+      });
+    }
+    if (args?.orderBy?.createdAt === 'asc') {
+      list.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    } else {
+      list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    }
+    return list;
+  }
+
+  async create(args: { data: any }): Promise<CreditTopUpRecord> {
+    const now = new Date();
+    const newTopUp: CreditTopUpRecord = {
+      id: args.data.id || `TOPUP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      userId: args.data.userId,
+      walletId: args.data.walletId || null,
+      amountIdr: Number(args.data.amountIdr),
+      creditRequested: Number(args.data.creditRequested),
+      paymentMethod: args.data.paymentMethod || 'MANUAL_BANK_TRANSFER',
+      bankName: args.data.bankName || 'BCA (Bank Central Asia)',
+      accountNumber: args.data.accountNumber || '0771360059',
+      accountName: args.data.accountName || 'Sri Hartono',
+      status: args.data.status || 'PENDING',
+      referenceNotes: args.data.referenceNotes || null,
+      adminNotes: args.data.adminNotes || null,
+      confirmedBy: args.data.confirmedBy || null,
+      confirmedByName: args.data.confirmedByName || null,
+      confirmedAt: args.data.confirmedAt ? new Date(args.data.confirmedAt) : null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.topups.push(newTopUp);
+    return newTopUp;
+  }
+
+  async update(args: { where: { id: string }; data: any }): Promise<CreditTopUpRecord> {
+    const idx = this.topups.findIndex((t) => t.id === args.where.id);
+    if (idx === -1) throw new Error(`CreditTopUp not found`);
+    const existing = this.topups[idx];
+    const updated: CreditTopUpRecord = {
+      ...existing,
+      ...args.data,
+      confirmedAt: args.data.confirmedAt !== undefined ? (args.data.confirmedAt ? new Date(args.data.confirmedAt) : null) : existing.confirmedAt,
+      updatedAt: new Date(),
+    };
+    this.topups[idx] = updated;
+    return updated;
+  }
+}
+
+// Memory fallback store for AiAnalysisLog
+class MemoryAiAnalysisLogStore {
+  private logs: AiAnalysisLogRecord[] = [];
+
+  async count(args?: { where?: any }): Promise<number> {
+    if (!args?.where) return this.logs.length;
+    const { userId, status } = args.where;
+    return this.logs.filter((l) => {
+      if (userId && l.userId !== userId) return false;
+      if (status && l.status !== status) return false;
+      return true;
+    }).length;
+  }
+
+  async findMany(args?: { where?: any; orderBy?: any; take?: number }): Promise<AiAnalysisLogRecord[]> {
+    let list = [...this.logs];
+    if (args?.where) {
+      const { userId, status } = args.where;
+      list = list.filter((l) => {
+        if (userId && l.userId !== userId) return false;
+        if (status && l.status !== status) return false;
+        return true;
+      });
+    }
+    if (args?.orderBy?.createdAt === 'asc') {
+      list.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    } else {
+      list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    }
+    if (args?.take) {
+      list = list.slice(0, args.take);
+    }
+    return list;
+  }
+
+  async create(args: { data: any }): Promise<AiAnalysisLogRecord> {
+    const newLog: AiAnalysisLogRecord = {
+      id: args.data.id || `ANL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      userId: args.data.userId,
+      symbol: args.data.symbol || 'XAUUSD',
+      timeframe: args.data.timeframe || 'H1',
+      analysisType: args.data.analysisType || 'LIVE_AI_ANALYSIS',
+      creditCost: Number(args.data.creditCost) || 100,
+      status: args.data.status || 'SUCCESS',
+      errorMessage: args.data.errorMessage || null,
+      snapshotId: args.data.snapshotId || null,
+      signalId: args.data.signalId || null,
+      createdAt: new Date(),
+    };
+    this.logs.push(newLog);
+    return newLog;
+  }
+}
+
+// Memory fallback store for CreditPaymentSetting
+class MemoryCreditPaymentSettingStore {
+  private setting: CreditPaymentSettingRecord = {
+    id: 'pay-setting-default',
+    bankName: 'BCA (Bank Central Asia)',
+    accountNumber: '0771360059',
+    accountName: 'Sri Hartono',
+    instructions: '1. Transfer via ATM / Mobile Banking / Internet Banking ke nomor rekening di atas.\n2. Cantumkan ID Top Up atau Nama Anda di berita transfer.\n3. Saldo AI Credit akan bertambah otomatis setelah diverifikasi oleh Admin.',
+    isActive: true,
+    updatedAt: new Date(),
+  };
+
+  async findFirst(): Promise<CreditPaymentSettingRecord> {
+    return { ...this.setting };
+  }
+
+  async upsert(args: { where?: any; create: any; update: any }): Promise<CreditPaymentSettingRecord> {
+    this.setting = {
+      ...this.setting,
+      ...args.update,
+      updatedAt: new Date(),
+    };
+    return { ...this.setting };
+  }
+}
+
+// Memory fallback store for CreditAuditLog
+class MemoryCreditAuditLogStore {
+  private logs: CreditAuditLogRecord[] = [];
+
+  async create(args: { data: any }): Promise<CreditAuditLogRecord> {
+    const newAudit: CreditAuditLogRecord = {
+      id: `aud-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      adminUserId: args.data.adminUserId,
+      action: args.data.action,
+      targetUserId: args.data.targetUserId || null,
+      amount: args.data.amount !== undefined ? Number(args.data.amount) : null,
+      balanceBefore: args.data.balanceBefore !== undefined ? Number(args.data.balanceBefore) : null,
+      balanceAfter: args.data.balanceAfter !== undefined ? Number(args.data.balanceAfter) : null,
+      referenceId: args.data.referenceId || null,
+      metadata: args.data.metadata ? (typeof args.data.metadata === 'string' ? args.data.metadata : JSON.stringify(args.data.metadata)) : null,
+      createdAt: new Date(),
+    };
+    this.logs.push(newAudit);
+    return newAudit;
+  }
+
+  async findMany(args?: { where?: any; orderBy?: any; take?: number }): Promise<CreditAuditLogRecord[]> {
+    let list = [...this.logs];
+    if (args?.where) {
+      const { adminUserId, targetUserId } = args.where;
+      list = list.filter((a) => {
+        if (adminUserId && a.adminUserId !== adminUserId) return false;
+        if (targetUserId && a.targetUserId !== targetUserId) return false;
+        return true;
+      });
+    }
+    list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    if (args?.take) list = list.slice(0, args.take);
+    return list;
+  }
+}
+
 // Memory fallback store for TradingAccount if Postgres is unavailable
 class MemoryTradingAccountStore {
   private accounts: TradingAccountRecord[] = [];
@@ -368,7 +920,7 @@ class MemoryUserStore {
   async create(args: { data: any }): Promise<UserRecord> {
     const now = new Date();
     const newUser: UserRecord = {
-      id: `usr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      id: args.data.id || `usr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       fullName: args.data.fullName,
       email: args.data.email.trim().toLowerCase(),
       password: args.data.password,
@@ -406,6 +958,12 @@ class MemoryUserStore {
 const memoryStore = new MemoryUserStore();
 const memoryAccountStore = new MemoryTradingAccountStore();
 const memoryCredentialStore = new MemoryTradingAccountCredentialStore();
+const memoryWalletStore = new MemoryCreditWalletStore();
+const memoryLedgerStore = new MemoryCreditLedgerStore();
+const memoryTopUpStore = new MemoryCreditTopUpStore();
+const memoryAiAnalysisStore = new MemoryAiAnalysisLogStore();
+const memoryPaymentSettingStore = new MemoryCreditPaymentSettingStore();
+const memoryAuditLogStore = new MemoryCreditAuditLogStore();
 
 let realPrisma: PrismaClient | null = null;
 let useRealPrisma = false;
@@ -423,6 +981,27 @@ if (connectionString && (connectionString.startsWith('postgres://') || connectio
 }
 
 export const prisma: any = {
+  $transaction: async (arg: any) => {
+    if (useRealPrisma && realPrisma) {
+      try {
+        if (typeof arg === 'function') {
+          return await (realPrisma as any).$transaction(arg);
+        } else if (Array.isArray(arg)) {
+          return await (realPrisma as any).$transaction(arg);
+        }
+      } catch (err) {
+        console.error('[Prisma Transaction Error]', err);
+        throw err;
+      }
+    }
+    // Fallback transaction executor: pass the prisma object to callback
+    if (typeof arg === 'function') {
+      return await arg(prisma);
+    } else if (Array.isArray(arg)) {
+      return await Promise.all(arg);
+    }
+    return null;
+  },
   user: {
     count: async (args?: any) => {
       if (useRealPrisma && realPrisma) {
@@ -459,6 +1038,162 @@ export const prisma: any = {
         try { return await realPrisma.user.delete(args); } catch (err) { useRealPrisma = false; }
       }
       return memoryStore.delete(args);
+    },
+  },
+  creditWallet: {
+    count: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditWallet.count(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryWalletStore.count(args);
+    },
+    findUnique: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditWallet.findUnique(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryWalletStore.findUnique(args);
+    },
+    findFirst: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditWallet.findFirst(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryWalletStore.findFirst(args);
+    },
+    findMany: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditWallet.findMany(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryWalletStore.findMany(args);
+    },
+    create: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditWallet.create(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryWalletStore.create(args);
+    },
+    update: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditWallet.update(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryWalletStore.update(args);
+    },
+    upsert: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditWallet.upsert(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryWalletStore.upsert(args);
+    },
+    delete: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditWallet.delete(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryWalletStore.delete(args);
+    },
+  },
+  creditLedger: {
+    count: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditLedger.count(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryLedgerStore.count(args);
+    },
+    findMany: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditLedger.findMany(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryLedgerStore.findMany(args);
+    },
+    create: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditLedger.create(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryLedgerStore.create(args);
+    },
+    createMany: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditLedger.createMany(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryLedgerStore.createMany(args);
+    },
+  },
+  creditTopUp: {
+    count: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditTopUp.count(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryTopUpStore.count(args);
+    },
+    findUnique: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditTopUp.findUnique(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryTopUpStore.findUnique(args);
+    },
+    findMany: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditTopUp.findMany(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryTopUpStore.findMany(args);
+    },
+    create: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditTopUp.create(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryTopUpStore.create(args);
+    },
+    update: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditTopUp.update(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryTopUpStore.update(args);
+    },
+  },
+  aiAnalysisLog: {
+    count: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).aiAnalysisLog.count(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryAiAnalysisStore.count(args);
+    },
+    findMany: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).aiAnalysisLog.findMany(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryAiAnalysisStore.findMany(args);
+    },
+    create: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).aiAnalysisLog.create(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryAiAnalysisStore.create(args);
+    },
+  },
+  creditPaymentSetting: {
+    findFirst: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditPaymentSetting.findFirst(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryPaymentSettingStore.findFirst();
+    },
+    upsert: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditPaymentSetting.upsert(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryPaymentSettingStore.upsert(args);
+    },
+  },
+  creditAuditLog: {
+    create: async (args: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditAuditLog.create(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryAuditLogStore.create(args);
+    },
+    findMany: async (args?: any) => {
+      if (useRealPrisma && realPrisma) {
+        try { return await (realPrisma as any).creditAuditLog.findMany(args); } catch (err) { useRealPrisma = false; }
+      }
+      return memoryAuditLogStore.findMany(args);
     },
   },
   tradingAccount: {
@@ -548,7 +1283,7 @@ export async function seedDefaultUsers() {
       const adminPasswordHash = await bcrypt.hash('Admin123!', 10);
       const traderPasswordHash = await bcrypt.hash('trader123', 10);
 
-      await realPrisma.user.create({
+      const adminUser = await realPrisma.user.create({
         data: {
           fullName: 'Master Admin SPILLA',
           email: 'admin@spillagold.com',
@@ -559,7 +1294,7 @@ export async function seedDefaultUsers() {
         },
       });
 
-      await realPrisma.user.create({
+      const traderUser = await realPrisma.user.create({
         data: {
           fullName: 'Institutional Trader',
           email: 'trader@spillagold.com',
@@ -569,7 +1304,33 @@ export async function seedDefaultUsers() {
           accountType: 'Trader Individu',
         },
       });
-      console.log('[Prisma Seed] Default accounts seeded.');
+
+      // Seed Initial Wallets in Postgres ONLY if not existing
+      await (realPrisma as any).creditWallet.upsert({
+        where: { userId: adminUser.id },
+        create: {
+          userId: adminUser.id,
+          balance: 100000.0,
+          totalTopUp: 100000.0,
+          totalUsed: 0.0,
+          totalAnalysis: 0,
+        },
+        update: {}, // NEVER reset existing balance
+      });
+
+      await (realPrisma as any).creditWallet.upsert({
+        where: { userId: traderUser.id },
+        create: {
+          userId: traderUser.id,
+          balance: 25000.0,
+          totalTopUp: 25000.0,
+          totalUsed: 0.0,
+          totalAnalysis: 0,
+        },
+        update: {}, // NEVER reset existing balance
+      });
+
+      console.log('[Prisma Seed] Default accounts and initial wallets configured safely.');
     }
   } catch (err) {
     console.warn('[Prisma Seed Note] Database seed skipped, memory user store active.');
@@ -577,4 +1338,5 @@ export async function seedDefaultUsers() {
 }
 
 seedDefaultUsers();
+
 

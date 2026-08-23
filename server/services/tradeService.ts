@@ -189,7 +189,7 @@ export class TradeService {
       }
     }
 
-    // 7. Numeric Lot / Volume Safety Validation
+    // 7. Numeric Lot / Volume Safety Validation & Broker Symbol Spec Verification
     if (payload.lot === undefined || payload.lot === null || isNaN(Number(payload.lot)) || Number(payload.lot) <= 0) {
       payload.lot = (payload as any).volume;
     }
@@ -205,16 +205,39 @@ export class TradeService {
 
     const targetSymbol = payload.symbol || 'XAUUSD';
     const spec = symbolService.getSymbol(targetSymbol);
-    if (MT5_EXECUTION_MODE === 'TEST') {
-      const allowedMaxLot = spec.maxTestLot || 0.01;
-      if (numericLot > allowedMaxLot + 0.0001) {
-        return {
-          valid: false,
-          statusCode: 400,
-          code: 'TEST_SAFETY_CAP_EXCEEDED',
-          message: `ORDER DISPATCH REJECTED: Lot size ${numericLot} exceeds hard test safety cap of ${allowedMaxLot} for ${spec.symbol}.`,
-        };
-      }
+    const minVol = spec.volumeMin ?? spec.minLot ?? 0.01;
+    const maxVol = spec.volumeMax ?? spec.maxLot ?? 100.0;
+    const step = spec.volumeStep ?? spec.lotStep ?? 0.01;
+    const stepDecimals = step.toString().split('.')[1]?.length || 2;
+
+    if (numericLot < minVol - 1e-6) {
+      return {
+        valid: false,
+        statusCode: 400,
+        code: 'VOLUME_BELOW_MINIMUM',
+        message: `ORDER DISPATCH REJECTED: Lot size ${numericLot} is below broker minimum volume of ${minVol} for ${spec.symbol}.`,
+      };
+    }
+
+    if (numericLot > maxVol + 1e-6) {
+      return {
+        valid: false,
+        statusCode: 400,
+        code: 'VOLUME_EXCEEDS_MAXIMUM',
+        message: `ORDER DISPATCH REJECTED: Lot size ${numericLot} exceeds broker maximum volume of ${maxVol} for ${spec.symbol}.`,
+      };
+    }
+
+    // Step alignment check
+    const steps = Math.round((numericLot - minVol) / step);
+    const expectedLot = Number((minVol + steps * step).toFixed(stepDecimals));
+    if (Math.abs(numericLot - expectedLot) > 1e-4) {
+      return {
+        valid: false,
+        statusCode: 400,
+        code: 'INVALID_VOLUME_STEP',
+        message: `ORDER DISPATCH REJECTED: Lot size ${numericLot} does not conform to broker lot step of ${step} for ${spec.symbol}. Nearest valid lot is ${expectedLot}.`,
+      };
     }
 
     // 8. Normalize aliases for Price, SL, TP1, TP2

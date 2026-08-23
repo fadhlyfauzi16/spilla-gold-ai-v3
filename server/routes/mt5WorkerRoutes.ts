@@ -315,7 +315,13 @@ mt5WorkerRouter.post('/heartbeat', async (req, res) => {
       symbol,
       balance,
       equity,
+      floatingProfitLoss,
+      profit,
+      margin,
       freeMargin,
+      marginLevel,
+      currency,
+      accountType,
       leverage,
       isLive,
     } = req.body || {};
@@ -399,8 +405,29 @@ mt5WorkerRouter.post('/heartbeat', async (req, res) => {
       updateData.equity = equity;
     }
 
+    const rawProfit = floatingProfitLoss !== undefined ? floatingProfitLoss : profit;
+    if (rawProfit !== undefined && typeof rawProfit === 'number' && !isNaN(rawProfit)) {
+      updateData.floatingProfitLoss = rawProfit;
+    }
+
+    if (margin !== undefined && typeof margin === 'number' && !isNaN(margin)) {
+      updateData.margin = margin;
+    }
+
     if (freeMargin !== undefined && typeof freeMargin === 'number' && !isNaN(freeMargin)) {
       updateData.freeMargin = freeMargin;
+    }
+
+    if (marginLevel !== undefined && typeof marginLevel === 'number' && !isNaN(marginLevel)) {
+      updateData.marginLevel = marginLevel;
+    }
+
+    if (currency && typeof currency === 'string' && currency.trim()) {
+      updateData.currency = currency.trim();
+    }
+
+    if (accountType && typeof accountType === 'string' && accountType.trim()) {
+      updateData.accountType = accountType.trim();
     }
 
     if (leverage !== undefined && typeof leverage === 'number' && !isNaN(leverage)) {

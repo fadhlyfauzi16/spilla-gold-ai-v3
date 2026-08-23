@@ -82,14 +82,14 @@ async function requireAdmin(req: any, res: any, next: any) {
 
 /**
  * GET /api/credit/wallet
- * Returns current user wallet, balance, and available analysis
+ * Returns current user wallet, balance, and available analysis from DB
  */
 creditRouter.get('/wallet', requireAuth, async (req: any, res) => {
   try {
     const userId = req.currentUser.id;
     const wallet = await creditService.getWallet(userId);
     const availableAnalysis = Math.floor(wallet.creditBalance / 100);
-    const paymentSettings = creditService.getPaymentSettings();
+    const paymentSettings = await creditService.getPaymentSettings();
 
     res.json({
       success: true,
@@ -108,12 +108,12 @@ creditRouter.get('/wallet', requireAuth, async (req: any, res) => {
 
 /**
  * GET /api/credit/transactions
- * Returns user credit transaction ledger
+ * Returns user credit transaction ledger from DB
  */
 creditRouter.get('/transactions', requireAuth, async (req: any, res) => {
   try {
     const userId = req.currentUser.id;
-    const txs = creditService.getCreditTransactions({ userId });
+    const txs = await creditService.getCreditTransactions({ userId });
     res.json({
       success: true,
       transactions: txs,
@@ -125,7 +125,7 @@ creditRouter.get('/transactions', requireAuth, async (req: any, res) => {
 
 /**
  * POST /api/credit/topup/request
- * Creates a top up request with manual bank transfer
+ * Creates a top up request with manual bank transfer in DB
  */
 creditRouter.post('/topup/request', requireAuth, async (req: any, res) => {
   try {
@@ -151,12 +151,12 @@ creditRouter.post('/topup/request', requireAuth, async (req: any, res) => {
 
 /**
  * GET /api/credit/topup/history
- * Returns user's topup history
+ * Returns user's topup history from DB
  */
 creditRouter.get('/topup/history', requireAuth, async (req: any, res) => {
   try {
     const userId = req.currentUser.id;
-    const history = creditService.getTopUpRequests({ userId });
+    const history = await creditService.getTopUpRequests({ userId });
     res.json({
       success: true,
       topups: history,
@@ -170,9 +170,9 @@ creditRouter.get('/topup/history', requireAuth, async (req: any, res) => {
  * GET /api/credit/payment-settings
  * Returns public bank payment info
  */
-creditRouter.get('/payment-settings', (_req, res) => {
+creditRouter.get('/payment-settings', async (_req, res) => {
   try {
-    const settings = creditService.getPaymentSettings();
+    const settings = await creditService.getPaymentSettings();
     res.json({
       success: true,
       paymentSettings: settings,
@@ -184,12 +184,12 @@ creditRouter.get('/payment-settings', (_req, res) => {
 
 /**
  * GET /api/credit/analysis-history
- * Returns user's AI analysis history
+ * Returns user's AI analysis history from DB
  */
 creditRouter.get('/analysis-history', requireAuth, async (req: any, res) => {
   try {
     const userId = req.currentUser.id;
-    const history = creditService.getAiAnalysisHistory({ userId });
+    const history = await creditService.getAiAnalysisHistory({ userId });
     res.json({
       success: true,
       analysisHistory: history,
@@ -208,7 +208,7 @@ creditRouter.get('/analysis-history', requireAuth, async (req: any, res) => {
  */
 adminCreditRouter.get('/stats', requireAdmin, async (_req, res) => {
   try {
-    const stats = creditService.getAdminCreditStats();
+    const stats = await creditService.getAdminCreditStats();
     res.json({
       success: true,
       stats,
@@ -220,11 +220,13 @@ adminCreditRouter.get('/stats', requireAdmin, async (_req, res) => {
 
 /**
  * GET /api/admin/credit/wallets
+ * Returns all user wallets with profile info and sorting
  */
 adminCreditRouter.get('/wallets', requireAdmin, async (req, res) => {
   try {
     const search = req.query.search as string;
-    const wallets = await creditService.getAllUserWalletsWithUsers(search);
+    const sortBy = req.query.sortBy as any;
+    const wallets = await creditService.getAllUserWalletsWithUsers({ search, sortBy });
     res.json({
       success: true,
       wallets,
@@ -241,7 +243,7 @@ adminCreditRouter.get('/topups', requireAdmin, async (req, res) => {
   try {
     const status = req.query.status as string;
     const search = req.query.search as string;
-    const topups = creditService.getTopUpRequests({ status, search });
+    const topups = await creditService.getTopUpRequests({ status, search });
     res.json({
       success: true,
       topups,
@@ -340,7 +342,7 @@ adminCreditRouter.get('/transactions', requireAdmin, async (req, res) => {
   try {
     const type = req.query.type as string;
     const search = req.query.search as string;
-    const transactions = creditService.getCreditTransactions({ type, search });
+    const transactions = await creditService.getCreditTransactions({ type, search });
     res.json({
       success: true,
       transactions,
@@ -355,7 +357,7 @@ adminCreditRouter.get('/transactions', requireAdmin, async (req, res) => {
  */
 adminCreditRouter.get('/payment-settings', requireAdmin, async (_req, res) => {
   try {
-    const settings = creditService.getPaymentSettings();
+    const settings = await creditService.getPaymentSettings();
     res.json({
       success: true,
       paymentSettings: settings,
@@ -375,7 +377,7 @@ adminCreditRouter.post('/payment-settings', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Bank Name, Account Number, dan Account Name wajib diisi.' });
     }
 
-    const updated = creditService.updatePaymentSettings({
+    const updated = await creditService.updatePaymentSettings({
       bankName,
       accountNumber,
       accountName,
@@ -390,5 +392,127 @@ adminCreditRouter.post('/payment-settings', requireAdmin, async (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================
+// RECONCILIATION & EXCEL BACKUP/RESTORE ENDPOINTS
+// ==========================================
+
+/**
+ * GET /api/admin/credit/reconciliation
+ * Audit all user balances against ledger math
+ */
+adminCreditRouter.get('/reconciliation', requireAdmin, async (_req, res) => {
+  try {
+    const report = await creditService.reconcileWallets();
+    res.json({
+      success: true,
+      report,
+    });
+  } catch (err: any) {
+    console.error('[Credit Reconciliation Error]', err);
+    res.status(500).json({ success: false, message: err.message || 'Gagal menjalankan rekonsiliasi saldo.' });
+  }
+});
+
+/**
+ * POST /api/admin/credit/reconciliation/repair
+ * Repair balance discrepancy with audited ledger adjustment
+ */
+adminCreditRouter.post('/reconciliation/repair', requireAdmin, async (req: any, res) => {
+  try {
+    const { targetUserId, reason } = req.body || {};
+    const adminUser = req.currentUser;
+
+    if (!targetUserId) {
+      return res.status(400).json({ success: false, message: 'Target User ID wajib ditentukan.' });
+    }
+    if (!reason || reason.trim().length < 3) {
+      return res.status(400).json({ success: false, message: 'Alasan perbaikan wajib diisi minimal 3 karakter.' });
+    }
+
+    const result = await creditService.repairReconciliation(adminUser.id, adminUser.fullName, targetUserId, reason);
+    res.json({
+      success: true,
+      message: `Rekonsiliasi saldo pengguna berhasil diperbaiki. Saldo diselaraskan ke ${result.repairedBalance.toLocaleString('id-ID')} Credit.`,
+      result,
+    });
+  } catch (err: any) {
+    console.error('[Credit Repair Error]', err);
+    res.status(400).json({ success: false, message: err.message || 'Gagal memperbaiki saldo pengguna.' });
+  }
+});
+
+/**
+ * GET /api/admin/credit/backup/export
+ * Downloads full institutional database ledger backup as multi-sheet .xlsx
+ */
+adminCreditRouter.get('/backup/export', requireAdmin, async (_req, res) => {
+  try {
+    const excelBuffer = await creditService.exportExcelWorkbook();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `SPILLA_GOLD_CREDIT_LEDGER_BACKUP_${timestamp}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', excelBuffer.length);
+    res.send(excelBuffer);
+  } catch (err: any) {
+    console.error('[Credit Export Error]', err);
+    res.status(500).json({ success: false, message: err.message || 'Gagal mengekspor backup ledger ke Excel.' });
+  }
+});
+
+/**
+ * POST /api/admin/credit/backup/import-preview
+ * Non-destructively parses Excel file buffer/base64 and returns validation report & diff
+ */
+adminCreditRouter.post('/backup/import-preview', requireAdmin, async (req: any, res) => {
+  try {
+    const { base64Data, fileName } = req.body || {};
+    if (!base64Data) {
+      return res.status(400).json({ success: false, message: 'File Excel (base64) wajib disertakan.' });
+    }
+
+    // Strip data URI prefix if present
+    const cleanBase64 = base64Data.replace(/^data:.*?;base64,/, '');
+    const buffer = Buffer.from(cleanBase64, 'base64');
+
+    const preview = await creditService.previewExcelImport(buffer, fileName || 'backup_upload.xlsx');
+    res.json({
+      success: true,
+      preview,
+    });
+  } catch (err: any) {
+    console.error('[Credit Import Preview Error]', err);
+    res.status(400).json({ success: false, message: err.message || 'Gagal memproses file Excel. Pastikan format file adalah .xlsx yang valid.' });
+  }
+});
+
+/**
+ * POST /api/admin/credit/backup/import-commit
+ * Commits the previewed import in atomic transaction (MERGE or RESTORE mode)
+ */
+adminCreditRouter.post('/backup/import-commit', requireAdmin, async (req: any, res) => {
+  try {
+    const { preview, mode } = req.body || {};
+    const adminUser = req.currentUser;
+
+    if (!preview || !preview.sheets) {
+      return res.status(400).json({ success: false, message: 'Data preview import tidak valid.' });
+    }
+    if (!mode || !['MERGE', 'RESTORE'].includes(mode)) {
+      return res.status(400).json({ success: false, message: 'Mode import harus MERGE atau RESTORE.' });
+    }
+
+    const result = await creditService.commitExcelImport(adminUser.id, adminUser.fullName, preview, mode);
+    res.json({
+      success: true,
+      result,
+    });
+  } catch (err: any) {
+    console.error('[Credit Import Commit Error]', err);
+    res.status(400).json({ success: false, message: err.message || 'Gagal mengeksekusi import data.' });
   }
 });

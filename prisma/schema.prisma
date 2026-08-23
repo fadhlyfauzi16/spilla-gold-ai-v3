@@ -68,7 +68,10 @@ model TradingAccount {
   lastHeartbeat    DateTime?
   balance          Float               @default(0.0)
   equity           Float               @default(0.0)
+  margin           Float?              @default(0.0)
   freeMargin       Float               @default(0.0)
+  marginLevel      Float?              @default(0.0)
+  floatingProfitLoss Float?            @default(0.0)
   leverage         Int                 @default(0)
   isLive           Boolean             @default(false)
   createdAt        DateTime            @default(now())

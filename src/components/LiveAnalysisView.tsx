@@ -48,10 +48,21 @@ import {
   Shield,
   Coins,
   PlusCircle,
+  Plus,
+  Minus,
+  Wallet,
 } from 'lucide-react';
 import { CreditWalletModal } from './CreditWalletModal';
 import { InsufficientCreditModal } from './InsufficientCreditModal';
 import { Mt5AccountStatusWidget, TradingAccountData } from './Mt5AccountStatusWidget';
+import {
+  isCentAccount,
+  normalizeCentToUsd,
+  formatAccountValue,
+  getRecommendedLot,
+  validateBrokerLot,
+  isHighLotAdvisory,
+} from '../utils/lotEngine.js';
 
 interface LiveAnalysisViewProps {
   recommendationData?: RecommendationResponse | null;
@@ -223,6 +234,37 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
   // Copilot State
   const [symbols, setSymbols] = useState<SymbolSpecification[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('XAUUSD');
+
+  const currentSymbolSpec: SymbolSpecification = React.useMemo(() => {
+    const found = symbols.find((s) => s.symbol === selectedSymbol);
+    if (found) return found;
+    return {
+      symbol: selectedSymbol,
+      name: selectedSymbol,
+      category: selectedSymbol.toUpperCase().includes('BTC') ? 'CRYPTO' : selectedSymbol.includes('USD') && !selectedSymbol.includes('XAU') ? 'FOREX' : 'METALS',
+      contractSize: selectedSymbol.toUpperCase().includes('BTC') ? 1 : selectedSymbol.toUpperCase().includes('EUR') || selectedSymbol.toUpperCase().includes('GBP') || selectedSymbol.toUpperCase().includes('JPY') ? 100000 : 100,
+      tickSize: selectedSymbol.includes('JPY') ? 0.001 : selectedSymbol.includes('EUR') || selectedSymbol.includes('GBP') ? 0.00001 : 0.01,
+      tickValue: selectedSymbol.includes('JPY') ? 0.65 : selectedSymbol.includes('EUR') || selectedSymbol.includes('GBP') ? 1.0 : 1.0,
+      volumeMin: 0.01,
+      volumeMax: 100.0,
+      volumeStep: 0.01,
+      minLot: 0.01,
+      maxLot: 100.0,
+      lotStep: 0.01,
+      maxTestLot: 0.01,
+      digits: selectedSymbol.includes('JPY') ? 3 : selectedSymbol.includes('EUR') || selectedSymbol.includes('GBP') ? 5 : 2,
+      point: selectedSymbol.includes('JPY') ? 0.001 : selectedSymbol.includes('EUR') || selectedSymbol.includes('GBP') ? 0.00001 : 0.01,
+      stopsLevel: 0,
+      freezeLevel: 0,
+      tradeMode: 'FULL_ACCESS',
+      currencyBase: 'USD',
+      currencyProfit: 'USD',
+      currencyMargin: 'USD',
+      maxSpreadPoints: 50,
+      defaultSpreadPoints: 15,
+    };
+  }, [symbols, selectedSymbol]);
+
   const [tradingStyle, setTradingStyle] = useState<TradingStyle>('INTRADAY');
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>('H4');
   const [accountEquity, setAccountEquity] = useState<number>(10000);
@@ -277,6 +319,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
   // Execution Modal & Status
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
   const [executingAction, setExecutingAction] = useState<'BUY' | 'SELL'>('BUY');
+  const [manualExecutionLot, setManualExecutionLot] = useState<number>(0.01);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [executionResult, setExecutionResult] = useState<CopilotExecutionResponse | null>(null);
   const [modalExecutionError, setModalExecutionError] = useState<string | null>(null);
@@ -977,6 +1020,11 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
   const isCurrentSignalDispatched = dispatchedSignalIds.includes(activeSignalId) || (dispatchedBanner?.signalId === activeSignalId);
 
   const handleOpenExecution = (actionToExecute: 'BUY' | 'SELL') => {
+    // 1. Calculate Recommended Lot based on normalized real USD Equity and Current Symbol Spec
+    const normEquity = normalizeCentToUsd(connectedAccount?.equity, connectedAccount) || (accountEquity > 0 ? accountEquity : 1000);
+    const recLot = getRecommendedLot(normEquity, currentSymbolSpec);
+    setManualExecutionLot(recLot);
+
     let params = executionParameters;
     if (!params && snapshot) {
       params = createExecutionParametersFromSnapshot(
@@ -1023,6 +1071,9 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
         ...params,
         signalId: params.signalId || `SG-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`,
         side: actionToExecute,
+        lot: recLot,
+        calculatedLot: recLot,
+        finalExecutionLot: recLot,
         entryPrice: entry,
         stopLoss: validSL,
         takeProfit1: validTP1,
@@ -1061,6 +1112,13 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
         setModalExecutionError('EKSEKUSI MT5 NON-AKTIF — Aktifkan sakelar MT5 Execution pada panel status akun sebelum mengirim order.');
         return;
       }
+    }
+
+    // Lot validation against current broker symbol specs (SSOT)
+    const lotValidation = validateBrokerLot(manualExecutionLot, currentSymbolSpec);
+    if (!lotValidation.valid) {
+      setModalExecutionError(lotValidation.error || 'INVALID LOT SIZE — Silakan sesuaikan volume lot sesuai batasan broker.');
+      return;
     }
 
     // Validation: ensure parameters exist and are not duplicated
@@ -1102,7 +1160,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
         tp2Val = Number((isSell ? entryVal - riskDist * 2.8 : entryVal + riskDist * 2.8).toFixed(digits));
       }
 
-      const lotVal = Number(currentParams.lot.toFixed(2));
+      const lotVal = lotValidation.normalizedLot;
 
       // Temporary Diagnostic Logging
       console.log(
@@ -1306,14 +1364,6 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
   const effectivePlanStatus = isPlanLocked
     ? (snapshot?.status === 'EXECUTED' ? 'EXECUTED' : (isDriftExpired ? 'TRADE_PLAN_EXPIRED' : 'LOCKED'))
     : (snapshot?.status || 'DYNAMIC');
-
-  const currentSymbolSpec = symbols.find((s) => s.symbol === selectedSymbol) || {
-    symbol: selectedSymbol,
-    digits: 2,
-    point: 0.01,
-    contractSize: 100,
-    category: 'METALS',
-  };
 
   const potentialEntryZone =
     snapshot?.potential_entry_zone ||
@@ -2504,7 +2554,17 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
 
         if (!params) return null;
 
-        // Phase 4 Authoritative Safety Gate Calculation
+        // Phase 4 Authoritative Safety Gate & Manual Lot Sizing
+        const normEquity = normalizeCentToUsd(connectedAccount?.equity, connectedAccount) || (accountEquity > 0 ? accountEquity : 1000);
+        const recLot = getRecommendedLot(normEquity, currentSymbolSpec);
+        const lotValidation = validateBrokerLot(manualExecutionLot, currentSymbolSpec);
+        const minLot = currentSymbolSpec.volumeMin || 0.01;
+        const maxLot = currentSymbolSpec.volumeMax || 100.0;
+        const lotStep = currentSymbolSpec.volumeStep || 0.01;
+        const stepDecimals = lotStep < 0.01 ? 3 : lotStep < 0.1 ? 2 : 1;
+        const isLotSpecValid = lotValidation.valid;
+        const isAboveRecommended = isHighLotAdvisory(manualExecutionLot, recLot);
+
         // Required MT5 Execution Connectivity Gates (HARD BLOCKERS)
         const isAccountConnected = Boolean(connectedAccount?.accountNumber);
         const isWorkerOnline = Boolean(connectedAccount?.workerOnline);
@@ -2516,12 +2576,12 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
         if (!isWorkerOnline) blockingGateReasons.push(`MT5 Worker (${connectedAccount?.workerId || 'UNREGISTERED'}) is OFFLINE.`);
         if (!isExecutionEnabled) blockingGateReasons.push(`MT5 Execution is DISABLED for account ${connectedAccount?.accountNumber || ''}.`);
         if (!isSignalNotDispatched) blockingGateReasons.push('Signal has already been dispatched to MT5.');
+        if (!isLotSpecValid) blockingGateReasons.push(lotValidation.error || 'Invalid lot size according to broker specs.');
 
         const allGatesPass = blockingGateReasons.length === 0;
 
         // Trade Plan Structure & Risk Assessment (ADVISORY / WARNING ONLY - NON-BLOCKING)
         const isDirectionValid = params.side === 'BUY' || params.side === 'SELL';
-        const isLotValid = params.lot > 0 && isFinite(params.lot) && params.lot <= 100;
         const isEntryValid = params.entryPrice > 0 && isFinite(params.entryPrice);
         const isSLValid = params.stopLoss > 0 && (params.side === 'BUY' ? params.stopLoss < params.entryPrice : params.stopLoss > params.entryPrice);
         const isTPValid = params.takeProfit1 > 0 && (params.side === 'BUY' ? params.takeProfit1 > params.entryPrice : params.takeProfit1 < params.entryPrice);
@@ -2533,11 +2593,27 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
 
         const advisoryWarnings: string[] = [];
         if (!isDirectionValid) advisoryWarnings.push(`Direction '${params.side}' advisory check.`);
-        if (!isLotValid) advisoryWarnings.push(`Lot size (${params.lot}) advisory notice.`);
+        if (isAboveRecommended) advisoryWarnings.push(`Selected lot (${manualExecutionLot.toFixed(stepDecimals)}) exceeds the SPILLA conservative equity guideline (${recLot.toFixed(stepDecimals)} Lots).`);
         if (!isEntryValid) advisoryWarnings.push(`Entry price ($${params.entryPrice}) advisory.`);
         if (!isSLValid) advisoryWarnings.push(`Stop Loss ($${params.stopLoss}) advisory: Recommended ${params.side === 'BUY' ? 'below' : 'above'} Entry ($${params.entryPrice}).`);
         if (!isTPValid) advisoryWarnings.push(`Take Profit ($${params.takeProfit1}) advisory: Recommended ${params.side === 'BUY' ? 'above' : 'below'} Entry ($${params.entryPrice}).`);
         if (calculatedRR > 0 && calculatedRR < minRecommendedRR) advisoryWarnings.push(`Risk/Reward (1:${calculatedRR.toFixed(2)}) is lower than recommended (1:${minRecommendedRR.toFixed(2)}).`);
+
+        const isCent = isCentAccount(connectedAccount);
+        const rawBal = connectedAccount?.balance ?? 0;
+        const rawEq = connectedAccount?.equity ?? 0;
+        const rawFloating = connectedAccount?.floatingProfitLoss ?? 0;
+        const rawMargin = connectedAccount?.margin ?? 0;
+        const rawFreeMargin = connectedAccount?.freeMargin ?? 0;
+
+        const handleStepLot = (delta: number) => {
+          setManualExecutionLot((prev) => {
+            const next = Number((prev + delta).toFixed(stepDecimals));
+            if (next < minLot) return minLot;
+            if (next > maxLot) return maxLot;
+            return next;
+          });
+        };
 
         return (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -2549,7 +2625,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                     <h3 className="text-sm font-extrabold text-white tracking-wider">
                       CONFIRM {params.side} ORDER EXECUTION
                     </h3>
-                    <span className="text-[10px] text-gray-400 font-mono">PHASE 4 SAFETY & RISK GATE</span>
+                    <span className="text-[10px] text-gray-400 font-mono">PHASE 4 SAFETY & RISK GATE • MANUAL LOT CONTROL</span>
                   </div>
                 </div>
                 <button
@@ -2564,34 +2640,37 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                 </button>
               </div>
 
-              {/* Dynamic MT5 Routing Target Review */}
-              <div className="bg-[#0B0E14] p-3.5 rounded-xl border border-gray-800 space-y-2 text-xs">
+              {/* Dynamic MT5 Routing Target & Real-time Telemetry Review */}
+              <div className="bg-[#0B0E14] p-3.5 rounded-xl border border-gray-800 space-y-2.5 text-xs">
                 <div className="flex items-center justify-between pb-1.5 border-b border-gray-800/60">
                   <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Cpu className="w-3.5 h-3.5 text-[#E5B842]" />
-                    ROUTED MT5 TRADING ACCOUNT
+                    ROUTED MT5 ACCOUNT TELEMETRY
                   </span>
-                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                    connectedAccount?.workerOnline
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                  }`}>
-                    {connectedAccount?.workerOnline ? 'WORKER ONLINE' : 'WORKER OFFLINE'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {isCent && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        CENT (USC)
+                      </span>
+                    )}
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                      connectedAccount?.workerOnline
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                    }`}>
+                      {connectedAccount?.workerOnline ? 'WORKER ONLINE' : 'WORKER OFFLINE'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
                   <div>
-                    <span className="text-gray-500 block text-[10px]">Account Number:</span>
+                    <span className="text-gray-500 block text-[10px]">Account:</span>
                     <span className="text-white font-mono font-bold">{connectedAccount?.accountNumber || 'Belum Terhubung'}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block text-[10px]">Worker ID:</span>
-                    <span className="text-[#E5B842] font-mono font-bold">{connectedAccount?.workerId || 'Auto Assigned'}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 block text-[10px]">Broker / Server:</span>
-                    <span className="text-gray-300 font-sans">{connectedAccount?.broker || 'AIMS'} • {connectedAccount?.brokerServer || '—'}</span>
+                    <span className="text-gray-500 block text-[10px]">Broker:</span>
+                    <span className="text-gray-300 font-sans truncate block">{connectedAccount?.broker || 'AIMS'}</span>
                   </div>
                   <div>
                     <span className="text-gray-500 block text-[10px]">Execution Switch:</span>
@@ -2599,10 +2678,28 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                       {connectedAccount?.executionEnabled ? 'ENABLED' : 'DISABLED'}
                     </span>
                   </div>
+                  <div>
+                    <span className="text-gray-500 block text-[10px]">Balance:</span>
+                    <span className="text-white font-mono font-bold">
+                      {isCent ? `${rawBal.toLocaleString(undefined, { minimumFractionDigits: 2 })} USC` : `$${rawBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block text-[10px]">Real Equity:</span>
+                    <span className="text-emerald-400 font-mono font-black">
+                      {isCent ? `≈ $${(rawEq / 100).toFixed(2)} USD` : `$${rawEq.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block text-[10px]">Floating P/L:</span>
+                    <span className={`font-mono font-bold ${rawFloating >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {rawFloating >= 0 ? `+${rawFloating.toFixed(2)}` : rawFloating.toFixed(2)} {isCent ? 'USC' : 'USD'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Execution Parameter Review */}
+              {/* Trade Parameter Review */}
               <div className="bg-[#0B0E14] p-3.5 rounded-xl border border-gray-800 space-y-2 text-xs">
                 <div className="flex justify-between items-center pb-1.5 border-b border-gray-800/60">
                   <span className="text-gray-400 text-[11px]">Signal ID:</span>
@@ -2627,26 +2724,133 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                   </div>
                 </div>
 
-                {/* Position Sizing & Safety Cap Breakdown */}
-                <div className="p-2.5 rounded-lg bg-[#121620] border border-gray-800 space-y-1.5">
+                {/* MANUAL LOT CONTROL & EQUITY-BASED RECOMMENDATION (SSOT) */}
+                <div className="p-3 rounded-xl bg-[#121620] border border-gray-800 space-y-2.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/60">
+                    <span className="text-[10px] font-extrabold text-[#E5B842] uppercase tracking-wider flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#E5B842]" />
+                      MANUAL LOT SIZING & EQUITY CONTROL
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20">
+                      MANUAL SELECTION
+                    </span>
+                  </div>
+
+                  {/* Equity Tier Guideline Info */}
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-gray-400">Calculated Mathematical Lot:</span>
-                    <span className="text-gray-300 font-mono">{(params.calculatedLot ?? params.lot).toFixed(2)} Lots</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-gray-400">Hard Safety Cap (Test Mode):</span>
-                    <span className="text-[#E5B842] font-mono font-bold">{(params.safetyCapLot ?? 0.01).toFixed(2)} Lots</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-gray-800">
-                    <span className="text-white font-bold">Final Execution Lot (SSOT):</span>
-                    <span className="text-emerald-400 font-black font-mono text-xs">{params.lot.toFixed(2)} Lots</span>
-                  </div>
-                  {params.calculatedLot && params.calculatedLot > params.lot && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-[#E5B842] bg-[#E5B842]/10 px-2 py-1 rounded border border-[#E5B842]/30 mt-1">
-                      <Shield className="w-3 h-3 text-[#E5B842] shrink-0" />
-                      <span>Safety Cap Active: Capped from {params.calculatedLot.toFixed(2)} to {params.lot.toFixed(2)} Lots</span>
+                    <span className="text-gray-400 flex items-center gap-1">
+                      <Wallet className="w-3 h-3 text-gray-400" />
+                      SPILLA Recommended Lot:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-emerald-400 font-mono font-bold">
+                        {recLot.toFixed(stepDecimals)} Lots
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setManualExecutionLot(recLot)}
+                        className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold border border-emerald-500/30 transition-all cursor-pointer"
+                      >
+                        Use Recommended
+                      </button>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Manual Lot Input Field with Stepper Buttons */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] text-gray-400">
+                      <span>Execution Lot Volume:</span>
+                      <span className="text-gray-500 font-mono">
+                        Broker Limit: {minLot} – {maxLot} (Step: {lotStep})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStepLot(-lotStep)}
+                        disabled={manualExecutionLot <= minLot}
+                        className="w-10 h-10 rounded-lg bg-[#0B0E14] border border-gray-700 hover:border-gray-500 text-white font-bold flex items-center justify-center transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+
+                      <div className="flex-1 relative">
+                        <input
+                          type="number"
+                          step={lotStep}
+                          min={minLot}
+                          max={maxLot}
+                          value={manualExecutionLot}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setManualExecutionLot(isNaN(val) ? 0 : val);
+                          }}
+                          className={`w-full h-10 px-3 text-center bg-[#0B0E14] border rounded-lg font-mono font-black text-sm text-white focus:outline-none focus:ring-1 ${
+                            !isLotSpecValid
+                              ? 'border-rose-500 text-rose-300 focus:ring-rose-500'
+                              : isAboveRecommended
+                              ? 'border-amber-500/60 focus:ring-amber-500'
+                              : 'border-emerald-500/60 focus:ring-emerald-500'
+                          }`}
+                        />
+                        <span className="absolute right-3 top-2.5 text-[10px] text-gray-500 pointer-events-none font-bold">
+                          LOTS
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleStepLot(lotStep)}
+                        disabled={manualExecutionLot >= maxLot}
+                        className="w-10 h-10 rounded-lg bg-[#0B0E14] border border-gray-700 hover:border-gray-500 text-white font-bold flex items-center justify-center transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <span className="text-[9px] text-gray-500">Presets:</span>
+                      {[0.01, 0.02, 0.05, 0.10].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setManualExecutionLot(preset)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border transition-all cursor-pointer ${
+                            manualExecutionLot === preset
+                              ? 'bg-[#E5B842] text-black border-[#E5B842]'
+                              : 'bg-[#0B0E14] text-gray-300 border-gray-800 hover:border-gray-600'
+                          }`}
+                        >
+                          {preset.toFixed(2)}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Validation Feedback */}
+                    {!isLotSpecValid && (
+                      <div className="text-[10px] text-rose-400 bg-rose-500/10 px-2.5 py-1.5 rounded-lg border border-rose-500/30 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                        <span>{lotValidation.error}</span>
+                      </div>
+                    )}
+
+                    {isLotSpecValid && isAboveRecommended && (
+                      <div className="text-[10px] text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/30 flex items-center gap-1.5">
+                        <Info className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                        <span>Advisory: Selected lot ({manualExecutionLot.toFixed(stepDecimals)}) exceeds conservative guideline ({recLot.toFixed(stepDecimals)} Lots).</span>
+                      </div>
+                    )}
+
+                    {/* Final SSOT Lot Confirmation Display */}
+                    <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-gray-800">
+                      <span className="text-white font-bold">Final Execution Lot (SSOT):</span>
+                      <span className="text-emerald-400 font-black font-mono text-xs">
+                        {manualExecutionLot.toFixed(stepDecimals)} Lots
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
@@ -2702,21 +2906,21 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-400">4. Direction & Structure (SL/TP):</span>
+                    <span className="text-gray-400">4. Broker Lot Validation:</span>
+                    <span className={isLotSpecValid ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                      {isLotSpecValid ? `PASS ✓ (${manualExecutionLot.toFixed(stepDecimals)} Lots)` : 'FAIL (Invalid Lot)'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">5. Direction & Structure (SL/TP):</span>
                     <span className="text-blue-400 font-bold">
                       {isSLValid && isTPValid ? 'PASS ✓ (Advisory)' : 'ADVISORY ONLY (Non-Blocking)'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-400">5. Risk / Reward:</span>
+                    <span className="text-gray-400">6. Risk / Reward:</span>
                     <span className="text-blue-400 font-bold">
                       1:{calculatedRR.toFixed(2)} (ADVISORY ONLY)
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400">6. AI Plan Advisory:</span>
-                    <span className="text-blue-400 font-bold">
-                      {snapshot?.eligibility?.eligible !== false ? 'ELIGIBLE (Advisory)' : 'ADVISORY ONLY (Non-Blocking)'}
                     </span>
                   </div>
                 </div>
@@ -2818,7 +3022,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                     ) : (
                       <>
                         <Zap className={`w-4 h-4 text-black ${isExecuting ? 'animate-spin' : ''}`} />
-                        <span>{isExecuting ? 'DISPATCHING TO MT5...' : `DISPATCH ${params.side} ORDER`}</span>
+                        <span>{isExecuting ? 'DISPATCHING TO MT5...' : `DISPATCH ${params.side} ORDER (${manualExecutionLot.toFixed(stepDecimals)} LOTS)`}</span>
                       </>
                     )}
                   </button>

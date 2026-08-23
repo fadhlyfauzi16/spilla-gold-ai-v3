@@ -892,6 +892,31 @@ export interface TradeExecutionOrder {
 
 export type Mt5ProvisioningStatus = 'WAITING FOR MT5' | 'PROCESSING' | 'ONLINE' | 'OFFLINE';
 
+export interface TradingAccountData {
+  id: string;
+  userId?: string | null;
+  accountNumber: string;
+  broker?: string;
+  brokerServer: string;
+  accountType?: string;
+  currency?: string;
+  workerId?: string | null;
+  symbol?: string | null;
+  executionEnabled: boolean;
+  workerOnline: boolean;
+  lastHeartbeat?: string | null;
+  lastHeartbeatAgeSeconds?: number | null;
+  balance?: number;
+  equity?: number;
+  margin?: number;
+  freeMargin?: number;
+  marginLevel?: number;
+  floatingProfitLoss?: number;
+  profit?: number;
+  leverage?: number;
+  isLive?: boolean;
+}
+
 export interface AdminTradingAccountRecord {
   id: string;
   userId?: string | null;
@@ -911,7 +936,11 @@ export interface AdminTradingAccountRecord {
   lastHeartbeatAgeSeconds?: number | null;
   balance: number;
   equity: number;
+  margin?: number;
   freeMargin?: number;
+  marginLevel?: number;
+  floatingProfitLoss?: number;
+  profit?: number;
   leverage?: number;
   isLive?: boolean;
   status: Mt5ProvisioningStatus;

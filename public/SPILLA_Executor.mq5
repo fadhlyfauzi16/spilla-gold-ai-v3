@@ -233,9 +233,15 @@ bool SendHeartbeat()
    string brokerServer = AccountInfoString(ACCOUNT_SERVER);
    double balance      = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity       = AccountInfoDouble(ACCOUNT_EQUITY);
+   double profit       = AccountInfoDouble(ACCOUNT_PROFIT);
+   double margin       = AccountInfoDouble(ACCOUNT_MARGIN);
    double freeMargin   = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   double marginLevel  = AccountInfoDouble(ACCOUNT_MARGIN_LEVEL);
+   string currency     = AccountInfoString(ACCOUNT_CURRENCY);
+   long tradeMode      = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+   string accountType  = (tradeMode == ACCOUNT_TRADE_MODE_REAL) ? "REAL" : ((tradeMode == ACCOUNT_TRADE_MODE_CONTEST) ? "CONTEST" : "DEMO");
    int leverage        = (int)AccountInfoInteger(ACCOUNT_LEVERAGE);
-   bool isLive         = (AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_REAL);
+   bool isLive         = (tradeMode == ACCOUNT_TRADE_MODE_REAL);
 
    string body = "{"
       + "\"workerId\":\"" + InpWorkerId + "\","
@@ -244,7 +250,13 @@ bool SendHeartbeat()
       + "\"symbol\":\"" + InpBrokerSymbol + "\","
       + "\"balance\":" + DoubleToString(balance, 2) + ","
       + "\"equity\":" + DoubleToString(equity, 2) + ","
+      + "\"floatingProfitLoss\":" + DoubleToString(profit, 2) + ","
+      + "\"profit\":" + DoubleToString(profit, 2) + ","
+      + "\"margin\":" + DoubleToString(margin, 2) + ","
       + "\"freeMargin\":" + DoubleToString(freeMargin, 2) + ","
+      + "\"marginLevel\":" + DoubleToString(marginLevel, 2) + ","
+      + "\"currency\":\"" + currency + "\","
+      + "\"accountType\":\"" + accountType + "\","
       + "\"leverage\":" + IntegerToString(leverage) + ","
       + "\"isLive\":" + (isLive ? "true" : "false")
       + "}";

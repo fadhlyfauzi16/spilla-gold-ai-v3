@@ -30,7 +30,10 @@ export interface TradingAccountRecord {
   lastHeartbeat?: Date | null;
   balance: number;
   equity: number;
+  margin?: number;
   freeMargin: number;
+  marginLevel?: number;
+  floatingProfitLoss?: number;
   leverage: number;
   isLive: boolean;
   createdAt: Date;
@@ -191,7 +194,10 @@ class MemoryTradingAccountStore {
       lastHeartbeat: args.data.lastHeartbeat || null,
       balance: args.data.balance !== undefined ? Number(args.data.balance) : 0,
       equity: args.data.equity !== undefined ? Number(args.data.equity) : 0,
+      margin: args.data.margin !== undefined ? Number(args.data.margin) : 0,
       freeMargin: args.data.freeMargin !== undefined ? Number(args.data.freeMargin) : 0,
+      marginLevel: args.data.marginLevel !== undefined ? Number(args.data.marginLevel) : 0,
+      floatingProfitLoss: args.data.floatingProfitLoss !== undefined ? Number(args.data.floatingProfitLoss) : (args.data.profit !== undefined ? Number(args.data.profit) : 0),
       leverage: args.data.leverage !== undefined ? Number(args.data.leverage) : 0,
       isLive: args.data.isLive !== undefined ? Boolean(args.data.isLive) : false,
       createdAt: now,

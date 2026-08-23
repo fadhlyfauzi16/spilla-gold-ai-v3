@@ -12,29 +12,16 @@ import {
   Activity,
   Layers,
   ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  Percent,
+  Wallet,
 } from 'lucide-react';
 import { ConnectTradingAccountModal } from './ConnectTradingAccountModal';
+import { TradingAccountData } from '../types.js';
+import { isCentAccount, formatAccountValue } from '../utils/lotEngine.js';
 
-export interface TradingAccountData {
-  id: string;
-  userId?: string | null;
-  accountNumber: string;
-  broker?: string;
-  brokerServer: string;
-  accountType?: string;
-  currency?: string;
-  workerId?: string | null;
-  symbol?: string | null;
-  executionEnabled: boolean;
-  workerOnline: boolean;
-  lastHeartbeat?: string | null;
-  lastHeartbeatAgeSeconds?: number | null;
-  balance?: number;
-  equity?: number;
-  freeMargin?: number;
-  leverage?: number;
-  isLive?: boolean;
-}
+export type { TradingAccountData };
 
 interface Mt5AccountStatusWidgetProps {
   authToken?: string | null;
@@ -189,6 +176,7 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
 
   const isOnline = Boolean(account?.workerOnline);
   const hasEverReceivedHeartbeat = Boolean(account?.lastHeartbeat);
+  const isCent = isCentAccount(account);
 
   // Status computation:
   // - CONNECTED / ONLINE: workerOnline is true
@@ -199,6 +187,16 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
     : hasEverReceivedHeartbeat
     ? 'OFFLINE'
     : 'WAITING FOR MT5';
+
+  // Telemetry formatting
+  const balanceInfo = formatAccountValue(account?.balance, isCent);
+  const equityInfo = formatAccountValue(account?.equity, isCent);
+  const rawProfit = account?.floatingProfitLoss !== undefined ? account.floatingProfitLoss : account?.profit;
+  const hasFloatingTrade = rawProfit !== undefined && rawProfit !== null;
+  const floatingInfo = formatAccountValue(rawProfit, isCent, { showPlusSign: true });
+  const marginInfo = formatAccountValue(account?.margin, isCent);
+  const freeMarginInfo = formatAccountValue(account?.freeMargin, isCent);
+  const marginLevel = account?.marginLevel !== undefined && account?.marginLevel !== null ? Number(account.marginLevel) : null;
 
   return (
     <>
@@ -246,11 +244,23 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
                   />
                   {isOnline ? 'ONLINE' : hasEverReceivedHeartbeat ? 'OFFLINE' : 'WAITING HEARTBEAT'}
                 </span>
+
+                {/* Account Type Badge (CENT vs STANDARD) */}
+                <span
+                  className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase border ${
+                    isCent
+                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+                      : 'bg-blue-500/15 text-blue-300 border-blue-500/40'
+                  }`}
+                >
+                  {isCent ? 'CENT ACCOUNT (USC)' : 'STANDARD (USD)'}
+                </span>
               </div>
               <p className="text-[10px] text-gray-400">
                 Broker:{' '}
                 <strong className="text-white">{account?.broker || 'AIMS'}</strong> • Server:{' '}
-                <strong className="text-white">{account?.brokerServer}</strong>
+                <strong className="text-white">{account?.brokerServer}</strong> • Curr:{' '}
+                <strong className="text-[#E5B842]">{account?.currency || (isCent ? 'USC' : 'USD')}</strong>
               </p>
             </div>
           </div>
@@ -292,34 +302,128 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
           </div>
         </div>
 
-        {/* Telemetry Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 text-xs">
-          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90">
-            <span className="text-[10px] text-gray-500 font-bold block uppercase">Account</span>
-            <span className="text-white font-mono font-extrabold text-xs sm:text-sm">
-              {account?.accountNumber}
+        {/* Telemetry Grid: Full MT5 Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-3 text-xs">
+          {/* 1. BALANCE */}
+          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90 flex flex-col justify-between">
+            <span className="text-[10px] text-gray-500 font-bold block uppercase flex items-center justify-between">
+              <span>Balance / Saldo</span>
+              <Wallet className="w-3 h-3 text-gray-400" />
             </span>
+            <div className="mt-1">
+              <span className="text-white font-mono font-extrabold text-xs sm:text-sm block">
+                {balanceInfo.primaryFormatted}
+              </span>
+              {isCent && (
+                <span className="text-[10px] text-gray-400 font-mono block">
+                  ≈ {balanceInfo.usdFormatted}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90">
-            <span className="text-[10px] text-gray-500 font-bold block uppercase">Worker ID</span>
-            <span className="text-[#E5B842] font-mono font-extrabold text-xs sm:text-sm truncate block">
-              {account?.workerId || (connectionState === 'WAITING FOR MT5' ? 'Waiting...' : 'N/A')}
+          {/* 2. EQUITY */}
+          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90 flex flex-col justify-between">
+            <span className="text-[10px] text-gray-500 font-bold block uppercase flex items-center justify-between">
+              <span>Equity</span>
+              <DollarSign className="w-3 h-3 text-emerald-400" />
             </span>
+            <div className="mt-1">
+              <span className="text-emerald-400 font-mono font-extrabold text-xs sm:text-sm block">
+                {equityInfo.primaryFormatted}
+              </span>
+              {isCent && (
+                <span className="text-[10px] text-emerald-300/80 font-mono block">
+                  ≈ {equityInfo.usdFormatted}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90">
-            <span className="text-[10px] text-gray-500 font-bold block uppercase">Balance / Equity</span>
-            <span className="text-emerald-400 font-mono font-extrabold text-xs sm:text-sm">
-              ${(account?.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          {/* 3. FLOATING TRADE / P&L */}
+          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90 flex flex-col justify-between">
+            <span className="text-[10px] text-gray-500 font-bold block uppercase flex items-center justify-between">
+              <span>Floating P/L</span>
+              {hasFloatingTrade && rawProfit! >= 0 ? (
+                <TrendingUp className="w-3 h-3 text-emerald-400" />
+              ) : (
+                <TrendingDown className="w-3 h-3 text-rose-400" />
+              )}
             </span>
+            <div className="mt-1">
+              {hasFloatingTrade ? (
+                <>
+                  <span
+                    className={`font-mono font-extrabold text-xs sm:text-sm block ${
+                      rawProfit! >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {floatingInfo.primaryFormatted}
+                  </span>
+                  {isCent && (
+                    <span
+                      className={`text-[10px] font-mono block ${
+                        rawProfit! >= 0 ? 'text-emerald-400/80' : 'text-rose-400/80'
+                      }`}
+                    >
+                      ≈ {floatingInfo.usdFormatted}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-gray-400 font-mono text-xs block">N/A</span>
+              )}
+            </div>
           </div>
 
-          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90">
-            <span className="text-[10px] text-gray-500 font-bold block uppercase">Leverage / Symbol</span>
-            <span className="text-gray-300 font-mono font-bold text-xs sm:text-sm">
-              {account?.leverage ? `1:${account.leverage}` : '1:100'} • {account?.symbol || 'XAUUSD'}
+          {/* 4. MARGIN & FREE MARGIN */}
+          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90 flex flex-col justify-between">
+            <span className="text-[10px] text-gray-500 font-bold block uppercase">
+              Margin / Free
             </span>
+            <div className="mt-1 space-y-0.5">
+              <div className="flex justify-between items-center text-[10px] font-mono">
+                <span className="text-gray-500">Margin:</span>
+                <span className="text-amber-400 font-bold">{marginInfo.primaryFormatted}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-mono">
+                <span className="text-gray-500">Free:</span>
+                <span className="text-gray-300">{freeMarginInfo.primaryFormatted}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. MARGIN LEVEL */}
+          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90 flex flex-col justify-between">
+            <span className="text-[10px] text-gray-500 font-bold block uppercase flex items-center justify-between">
+              <span>Margin Level</span>
+              <Percent className="w-3 h-3 text-cyan-400" />
+            </span>
+            <div className="mt-1">
+              <span className="text-cyan-400 font-mono font-extrabold text-xs sm:text-sm block">
+                {marginLevel !== null && marginLevel > 0
+                  ? `${marginLevel.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                  : '—'}
+              </span>
+              <span className="text-[10px] text-gray-500 font-mono block">
+                Leverage: 1:{account?.leverage || 100}
+              </span>
+            </div>
+          </div>
+
+          {/* 6. ACCOUNT & SYMBOL */}
+          <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800/90 flex flex-col justify-between">
+            <span className="text-[10px] text-gray-500 font-bold block uppercase">
+              Account / Symbol
+            </span>
+            <div className="mt-1">
+              <span className="text-white font-mono font-bold text-xs block">
+                #{account?.accountNumber}
+              </span>
+              <span className="text-[#E5B842] font-mono text-[10px] font-bold block truncate">
+                {account?.symbol || 'XAUUSD'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -350,3 +454,4 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
     </>
   );
 };
+

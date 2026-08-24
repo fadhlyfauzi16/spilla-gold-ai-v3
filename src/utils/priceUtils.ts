@@ -1,52 +1,139 @@
 /**
  * Price Utility Functions for SPILLA GOLD Analysis Engine
- * Normalizes MT5 Cent Account prices (XAUUSD.cent) to standard market prices.
+ *
+ * IMPORTANT:
+ * CENT account status affects account denomination / balance / tick value,
+ * NOT the quoted market price.
+ *
+ * Example:
+ * XAUUSD      = 4639.40
+ * XAUUSD.cent = 4639.40
+ *
+ * Therefore price must NEVER be multiplied or divided only because
+ * the broker symbol contains ".cent".
  */
 
-import { normalizeCanonicalSymbol, isCentSymbol } from './symbolUtils.js';
+import { normalizeCanonicalSymbol } from './symbolUtils.js';
 
 /**
- * Normalizes price from MT5 Cent Account (e.g. XAUUSD.cent) to standard USD price.
- * Divides by 100 ONLY if the symbol is a genuine cent symbol (e.g. XAUUSD.CENT, .cent, .c) and price > 10000.
- * Standard symbols (BTCUSD, XAUUSD, EURUSD, GBPUSD, USDJPY) NEVER inherit cent conversion.
+ * Returns broker/market price without cent-account scaling.
+ *
+ * The function name is preserved for backward compatibility with
+ * existing components that already call normalizeCentPrice().
+ *
+ * IMPORTANT:
+ * - XAUUSD.cent price is NOT divided by 100
+ * - XAUUSD.cent price is NOT multiplied by 10/100
+ * - account cent normalization belongs to balance/equity utilities,
+ *   not price utilities
  */
-export function normalizeCentPrice(price: number | undefined | null, symbol: string = 'XAUUSD'): number {
-  if (price === undefined || price === null || isNaN(price)) return 0;
-  const canonical = normalizeCanonicalSymbol(symbol);
+export function normalizeCentPrice(
+  price: number | undefined | null,
+  symbol: string = 'XAUUSD'
+): number {
+  void symbol;
 
-  // If canonical is not gold (BTC, EUR, GBP, JPY), never apply cent division
-  if (canonical !== 'XAUUSD') {
-    return Number(price);
+  if (
+    price === undefined ||
+    price === null ||
+    isNaN(Number(price)) ||
+    !isFinite(Number(price))
+  ) {
+    return 0;
   }
 
-  // Cent scaling only applies to Gold cent symbols where price is reported in cents (>10000)
-  if (isCentSymbol(symbol) && price > 10000) {
-    return Number((price / 100).toFixed(2));
-  }
   return Number(price);
 }
 
 /**
- * Formats symbol label cleanly for user display
- * e.g. "XAUUSD.cent" -> "XAUUSD"
+ * Canonical SPILLA symbol for UI/analysis.
+ *
+ * Examples:
+ * XAUUSD.cent -> XAUUSD
+ * GOLD.cent   -> XAUUSD
+ * BTCUSD.edge -> BTCUSD
  */
-export function formatSymbolLabel(symbol: string = 'XAUUSD'): string {
+export function formatSymbolLabel(
+  symbol: string = 'XAUUSD'
+): string {
   return normalizeCanonicalSymbol(symbol);
 }
 
 /**
- * Formats price with comma separator and appropriate decimal places
+ * Returns appropriate display precision for canonical markets.
  */
-export function formatPriceDisplay(price: number | undefined | null, symbol: string = 'XAUUSD'): string {
-  const normalized = normalizeCentPrice(price, symbol);
-  const sym = (symbol || 'XAUUSD').toUpperCase();
-  let digits = 2;
-  if (sym.includes('EUR') || sym.includes('GBP')) digits = 5;
-  else if (sym.includes('JPY')) digits = 3;
-  else if (sym.includes('BTC')) digits = 2;
+export function getPriceDigits(
+  symbol: string = 'XAUUSD'
+): number {
+  const canonical = normalizeCanonicalSymbol(symbol);
 
-  return normalized.toLocaleString('en-US', {
+  switch (canonical) {
+    case 'EURUSD':
+    case 'GBPUSD':
+      return 5;
+
+    case 'USDJPY':
+      return 3;
+
+    case 'XAUUSD':
+    case 'BTCUSD':
+    default:
+      return 2;
+  }
+}
+
+/**
+ * Formats market price for visual display.
+ *
+ * IMPORTANT:
+ * Formatting does not alter the economic price scale.
+ */
+export function formatPriceDisplay(
+  price: number | undefined | null,
+  symbol: string = 'XAUUSD'
+): string {
+  const normalizedPrice = normalizeCentPrice(price, symbol);
+  const digits = getPriceDigits(symbol);
+
+  return normalizedPrice.toLocaleString('en-US', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
+}
+
+/**
+ * Validates that a price is a usable positive market price.
+ */
+export function isValidMarketPrice(
+  price: number | undefined | null
+): boolean {
+  const numericPrice = Number(price);
+
+  return (
+    Number.isFinite(numericPrice) &&
+    numericPrice > 0
+  );
+}
+
+/**
+ * Normalizes a price only to the correct decimal precision.
+ *
+ * This does NOT rescale the price.
+ *
+ * Example:
+ * XAUUSD.cent 4639.42891 -> 4639.43
+ */
+export function normalizePricePrecision(
+  price: number | undefined | null,
+  symbol: string = 'XAUUSD'
+): number {
+  const numericPrice = normalizeCentPrice(price, symbol);
+
+  if (!isValidMarketPrice(numericPrice)) {
+    return 0;
+  }
+
+  const digits = getPriceDigits(symbol);
+
+  return Number(numericPrice.toFixed(digits));
 }

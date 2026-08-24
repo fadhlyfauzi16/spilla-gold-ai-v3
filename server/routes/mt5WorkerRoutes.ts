@@ -2,6 +2,7 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { getPrismaClient } from '../db/prisma.js';
 import { encryptMt5Password } from '../services/mt5CredentialService.js';
+import { symbolService } from '../services/symbolService.js';
 
 export const mt5WorkerRouter = Router();
 const prisma = getPrismaClient();
@@ -393,13 +394,27 @@ mt5WorkerRouter.post('/heartbeat', async (req, res) => {
       updateData.brokerServer = brokerServer.trim();
     }
 
-    if (symbol && typeof symbol === 'string' && symbol.trim()) {
-      const rawSym = symbol.trim();
-      const resolved = symbolService.resolveSymbol(rawSym);
-      updateData.brokerSymbol = rawSym;
-      updateData.canonicalSymbol = resolved.canonicalSymbol;
-      updateData.symbol = resolved.canonicalSymbol;
-    }
+if (symbol && typeof symbol === 'string' && symbol.trim()) {
+  const rawBrokerSymbol = symbol.trim();
+
+  // MT5 is authoritative for the exact broker trading symbol.
+  // Example: XAUUSD.cent
+  const resolved = symbolService.resolveSymbol(rawBrokerSymbol);
+
+  const canonicalSymbol =
+    resolved?.canonicalSymbol &&
+    typeof resolved.canonicalSymbol === 'string' &&
+    resolved.canonicalSymbol.trim()
+      ? resolved.canonicalSymbol.trim().toUpperCase()
+      : 'XAUUSD';
+
+  // Keep BOTH identities:
+  // brokerSymbol    -> exact MT5 symbol, e.g. XAUUSD.cent
+  // canonicalSymbol -> SPILLA analysis symbol, e.g. XAUUSD
+  updateData.brokerSymbol = rawBrokerSymbol;
+  updateData.canonicalSymbol = canonicalSymbol;
+  updateData.symbol = canonicalSymbol;
+}
 
     if (balance !== undefined && typeof balance === 'number' && !isNaN(balance)) {
       updateData.balance = balance;
@@ -463,16 +478,32 @@ mt5WorkerRouter.post('/heartbeat', async (req, res) => {
       code: 'HEARTBEAT_ACCEPTED',
       message: 'MT5 worker heartbeat accepted',
       worker: {
-        workerId: updatedAccount.workerId,
-        accountNumber: updatedAccount.accountNumber,
-        brokerServer: updatedAccount.brokerServer,
-        symbol: updatedAccount.canonicalSymbol || updatedAccount.symbol || 'XAUUSD',
-        canonicalSymbol: updatedAccount.canonicalSymbol || updatedAccount.symbol || 'XAUUSD',
-        brokerSymbol: updatedAccount.brokerSymbol || updatedAccount.symbol || 'XAUUSD',
-        workerOnline: true,
-        executionEnabled: updatedAccount.executionEnabled ?? false,
-        lastHeartbeat: timestampIso,
-      },
+  workerId: updatedAccount.workerId,
+  accountNumber: updatedAccount.accountNumber,
+  brokerServer: updatedAccount.brokerServer,
+
+  // Clean SPILLA market identity
+  symbol:
+    updatedAccount.canonicalSymbol ||
+    updatedAccount.symbol ||
+    'XAUUSD',
+
+  canonicalSymbol:
+    updatedAccount.canonicalSymbol ||
+    updatedAccount.symbol ||
+    'XAUUSD',
+
+  // Exact MT5 symbol. Never hardcode ".cent".
+  brokerSymbol:
+    updatedAccount.brokerSymbol ||
+    updatedAccount.symbol ||
+    updatedAccount.canonicalSymbol ||
+    'XAUUSD',
+
+  workerOnline: true,
+  executionEnabled: updatedAccount.executionEnabled ?? false,
+  lastHeartbeat: timestampIso,
+},
     });
   } catch (error: any) {
     console.error('[MT5 Heartbeat Error]:', error);

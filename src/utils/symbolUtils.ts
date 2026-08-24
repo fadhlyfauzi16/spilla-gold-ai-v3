@@ -21,6 +21,8 @@ export const CANONICAL_MARKETS: readonly CanonicalSymbol[] = [
   'USDJPY',
 ] as const;
 
+export const CANONICAL_SYMBOLS = CANONICAL_MARKETS;
+
 export interface SymbolMappingRule {
   canonical: CanonicalSymbol;
   aliases: string[];

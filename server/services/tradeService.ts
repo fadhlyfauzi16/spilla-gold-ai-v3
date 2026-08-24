@@ -265,8 +265,41 @@ export class TradeService {
       };
     }
 
-    // 10. Stop Loss Validation
-    const numSL = Number(payload.stopLoss);
+    // 10. SPILLA INTRADAY FIXED SL / TP OVERRIDE
+    // For canonical XAUUSD only: 1 pip = 0.10 price, therefore 100 pips = 10.00 price.
+    // This runs BEFORE SL/TP validation so the backend becomes the SSOT for INTRADAY targets.
+    let numSL = Number(payload.stopLoss);
+    let numTP1 = Number(payload.takeProfit1);
+
+    const tradingStyleNormalized = String(payload.tradingStyle || 'INTRADAY').trim().toUpperCase();
+    const fixedTargetSymbolInput = String(payload.canonicalSymbol || payload.symbol || 'XAUUSD').trim();
+    const fixedTargetResolved = symbolService.resolveSymbol(fixedTargetSymbolInput);
+    const fixedTargetCanonical = fixedTargetResolved.canonicalSymbol;
+
+    if (tradingStyleNormalized === 'INTRADAY' && fixedTargetCanonical === 'XAUUSD') {
+      const XAUUSD_PIP_SIZE = 0.10;
+      const INTRADAY_FIXED_PIPS = 100;
+      const priceDistance = XAUUSD_PIP_SIZE * INTRADAY_FIXED_PIPS; // 10.00
+
+      if (side === 'BUY') {
+        numSL = Number((numEntry - priceDistance).toFixed(2));
+        numTP1 = Number((numEntry + priceDistance).toFixed(2));
+      } else {
+        numSL = Number((numEntry + priceDistance).toFixed(2));
+        numTP1 = Number((numEntry - priceDistance).toFixed(2));
+      }
+
+      // Fixed intraday target uses a single TP to avoid TP2 conflicts.
+      payload.stopLoss = numSL;
+      payload.takeProfit1 = numTP1;
+      payload.takeProfit2 = null;
+
+      console.log(
+        `[INTRADAY_FIXED_TARGET] Symbol=${fixedTargetCanonical} Side=${side} Entry=${numEntry} SL=${numSL} TP1=${numTP1} Distance=${INTRADAY_FIXED_PIPS} pips`
+      );
+    }
+
+    // 11. Stop Loss Validation
     if (isNaN(numSL) || !isFinite(numSL) || numSL <= 0) {
       return {
         valid: false,
@@ -276,8 +309,7 @@ export class TradeService {
       };
     }
 
-    // 11. Take Profit 1 Validation
-    const numTP1 = Number(payload.takeProfit1);
+    // 12. Take Profit 1 Validation
     if (isNaN(numTP1) || !isFinite(numTP1) || numTP1 <= 0) {
       return {
         valid: false,

@@ -1,12 +1,228 @@
-// Prisma Schema for SPILLA GOLD Analysis Engine
-// Manages authentication, user accounts, roles, and status
-
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id             String          @id @default(uuid())
+  fullName       String
+  email          String          @unique
+  password       String
+  role           Role            @default(USER)
+  status         Status          @default(ACTIVE)
+  accountType    String?         @default("Trader Individu")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  aiAnalysisLogs AiAnalysisLog[]
+  creditLedgers  CreditLedger[]
+  creditTopUps   CreditTopUp[]
+  creditWallet   CreditWallet?
+}
+
+model CreditWallet {
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  balance       Float          @default(0.0)
+  totalTopUp    Float          @default(0.0)
+  totalUsed     Float          @default(0.0)
+  totalAnalysis Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  ledgers       CreditLedger[]
+  topups        CreditTopUp[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreditLedger {
+  id            String           @id @default(uuid())
+  userId        String
+  walletId      String
+  type          CreditLedgerType @default(TOPUP)
+  amount        Float
+  balanceBefore Float
+  balanceAfter  Float
+  referenceId   String?
+  description   String
+  performedBy   String?
+  createdAt     DateTime         @default(now())
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet        CreditWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([createdAt])
+}
+
+model CreditTopUp {
+  id              String          @id @default(uuid())
+  userId          String
+  walletId        String?
+  amountIdr       Float
+  creditRequested Float
+  paymentMethod   String          @default("MANUAL_BANK_TRANSFER")
+  bankName        String          @default("BCA (Bank Central Asia)")
+  accountNumber   String          @default("0771360059")
+  accountName     String          @default("Sri Hartono")
+  status          TopUpStatusEnum @default(PENDING)
+  referenceNotes  String?
+  adminNotes      String?
+  confirmedBy     String?
+  confirmedByName String?
+  confirmedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet          CreditWallet?   @relation(fields: [walletId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AiAnalysisLog {
+  id           String   @id @default(uuid())
+  userId       String
+  symbol       String   @default("XAUUSD")
+  timeframe    String   @default("H1")
+  analysisType String   @default("LIVE_AI_ANALYSIS")
+  creditCost   Float    @default(100.0)
+  status       String   @default("SUCCESS")
+  errorMessage String?
+  snapshotId   String?
+  signalId     String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model CreditPaymentSetting {
+  id            String   @id @default(uuid())
+  bankName      String   @default("BCA (Bank Central Asia)")
+  accountNumber String   @default("0771360059")
+  accountName   String   @default("Sri Hartono")
+  instructions  String
+  isActive      Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
+}
+
+model CreditAuditLog {
+  id            String   @id @default(uuid())
+  adminUserId   String
+  action        String
+  targetUserId  String?
+  amount        Float?
+  balanceBefore Float?
+  balanceAfter  Float?
+  referenceId   String?
+  metadata      String?
+  createdAt     DateTime @default(now())
+
+  @@index([adminUserId])
+  @@index([targetUserId])
+  @@index([createdAt])
+}
+
+model TradingAccount {
+  id                 String                    @id @default(uuid())
+  userId             String?
+  accountNumber      String                    @unique
+  brokerServer       String                    @default("AIMS-Live")
+  accountType        String                    @default("STANDARD")
+  currency           String                    @default("USD")
+  balance            Float                     @default(0.0)
+  equity             Float                     @default(0.0)
+  freeMargin         Float                     @default(0.0)
+  leverage           Int                       @default(0)
+  isLive             Boolean                   @default(false)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  executionEnabled   Boolean                   @default(false)
+  lastHeartbeat      DateTime?
+  symbol             String?                   @default("XAUUSD")
+  workerId           String?
+  workerOnline       Boolean                   @default(false)
+  broker             String?                   @default("AIMS")
+  floatingProfitLoss Float?                    @default(0.0)
+  margin             Float?                    @default(0.0)
+  marginLevel        Float?                    @default(0.0)
+  tradePlans         TradePlanSnapshot[]
+  credential         TradingAccountCredential?
+}
+
+model TradingAccountCredential {
+  id                String         @id @default(uuid())
+  tradingAccountId  String         @unique
+  encryptedPassword String
+  iv                String
+  authTag           String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  tradingAccount    TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+}
+
+model TradePlanSnapshot {
+  id                    String              @id @default(uuid())
+  tradePlanId           String              @unique
+  analysisId            String
+  signalId              String
+  riskValidationId      String
+  tradingAccountId      String?
+  symbol                String              @default("XAUUSD")
+  timeframe             String              @default("H1")
+  marketCondition       MarketConditionEnum @default(BULLISH)
+  action                TradingActionEnum   @default(BUY)
+  confidence            Int                 @default(85)
+  marketPriceAtCreation Float
+  bid                   Float
+  ask                   Float
+  spreadPoints          Int                 @default(20)
+  entryZoneMin          Float
+  entryZoneMax          Float
+  entryPrice            Float
+  stopLoss              Float
+  takeProfit1           Float
+  takeProfit2           Float
+  takeProfit3           Float?
+  riskRewardRatio       Float
+  riskPercent           Float               @default(1.0)
+  riskAmount            Float               @default(100.0)
+  calculatedLot         Float               @default(0.10)
+  normalizedLot         Float               @default(0.10)
+  estimatedLossAtSl     Float               @default(100.0)
+  isEligible            Boolean             @default(true)
+  validationStatus      String              @default("APPROVED")
+  validationReasons     String
+  validationChecks      String
+  keyDrivers            String
+  invalidationCondition String
+  marketNarrative       String
+  userConfirmed         Boolean             @default(false)
+  planStatus            PlanStatusEnum      @default(PROPOSED)
+  mt5Ticket             String?
+  executedAt            DateTime?
+  actualFillPrice       Float?
+  createdAt             DateTime            @default(now())
+  expiresAt             DateTime
+  tradingAccount        TradingAccount?     @relation(fields: [tradingAccountId], references: [id])
+}
+
+model CopilotAuditLog {
+  id              String   @id @default(uuid())
+  timestamp       DateTime @default(now())
+  eventType       String
+  userId          String?
+  accountId       String?
+  symbol          String   @default("XAUUSD")
+  relatedEntityId String?
+  idempotencyKey  String?
+  status          String   @default("INFO")
+  reason          String?
+  details         String?
 }
 
 enum Role {
@@ -58,303 +274,4 @@ enum TopUpStatusEnum {
   CANCELLED
 }
 
-model User {
-  id          String   @id @default(uuid())
-  fullName    String
-  email       String   @unique
-  password    String
-  role        Role     @default(USER)
-  status      Status   @default(ACTIVE)
-  accountType String?  @default("Trader Individu")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  creditWallet   CreditWallet?
-  creditLedgers  CreditLedger[]
-  creditTopUps   CreditTopUp[]
-  aiAnalysisLogs AiAnalysisLog[]
-}
-
-model CreditWallet {
-  id            String         @id @default(uuid())
-  userId        String         @unique
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  balance       Float          @default(0.0)
-  totalTopUp    Float          @default(0.0)
-  totalUsed     Float          @default(0.0)
-  totalAnalysis Int            @default(0)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  ledgers       CreditLedger[]
-  topups        CreditTopUp[]
-}
-
-model CreditLedger {
-  id            String           @id @default(uuid())
-  userId        String
-  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  walletId      String
-  wallet        CreditWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  type          CreditLedgerType @default(TOPUP)
-  amount        Float
-  balanceBefore Float
-  balanceAfter  Float
-  referenceId   String?
-  description   String
-  performedBy   String?
-  createdAt     DateTime         @default(now())
-
-  @@index([userId])
-  @@index([walletId])
-  @@index([createdAt])
-}
-
-model CreditTopUp {
-  id              String          @id @default(uuid())
-  userId          String
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  walletId        String?
-  wallet          CreditWallet?   @relation(fields: [walletId], references: [id])
-  amountIdr       Float
-  creditRequested Float
-  paymentMethod   String          @default("MANUAL_BANK_TRANSFER")
-  bankName        String          @default("BCA (Bank Central Asia)")
-  accountNumber   String          @default("0771360059")
-  accountName     String          @default("Sri Hartono")
-  status          TopUpStatusEnum @default(PENDING)
-  referenceNotes  String?
-  adminNotes      String?
-  confirmedBy     String?
-  confirmedByName String?
-  confirmedAt     DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-model AiAnalysisLog {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  symbol       String   @default("XAUUSD")
-  timeframe    String   @default("H1")
-  analysisType String   @default("LIVE_AI_ANALYSIS")
-  creditCost   Float    @default(100.0)
-  status       String   @default("SUCCESS")
-  errorMessage String?
-  snapshotId   String?
-  signalId     String?
-  createdAt    DateTime @default(now())
-
-  @@index([userId])
-  @@index([createdAt])
-}
-
-model CreditPaymentSetting {
-  id            String   @id @default(uuid())
-  bankName      String   @default("BCA (Bank Central Asia)")
-  accountNumber String   @default("0771360059")
-  accountName   String   @default("Sri Hartono")
-  instructions  String
-  isActive      Boolean  @default(true)
-  updatedAt     DateTime @updatedAt
-}
-
-model CreditAuditLog {
-  id            String   @id @default(uuid())
-  adminUserId   String
-  action        String
-  targetUserId  String?
-  amount        Float?
-  balanceBefore Float?
-  balanceAfter  Float?
-  referenceId   String?
-  metadata      String?
-  createdAt     DateTime @default(now())
-
-  @@index([adminUserId])
-  @@index([targetUserId])
-  @@index([createdAt])
-}
-
-model TradingAccount {
-  id                 String                    @id @default(uuid())
-  userId             String?
-  accountNumber      String                    @unique
-  broker             String?                   @default("AIMS")
-  brokerServer       String                    @default("AIMS-Live")
-  accountType        String                    @default("STANDARD")
-  currency           String                    @default("USD")
-  workerId           String?
-  symbol             String?                   @default("XAUUSD")
-  executionEnabled   Boolean                   @default(false)
-  workerOnline       Boolean                   @default(false)
-  lastHeartbeat      DateTime?
-  balance            Float                     @default(0.0)
-  equity             Float                     @default(0.0)
-  margin             Float?                    @default(0.0)
-  freeMargin         Float                     @default(0.0)
-  marginLevel        Float?                    @default(0.0)
-  floatingProfitLoss Float?                    @default(0.0)
-  leverage           Int                       @default(0)
-  isLive             Boolean                   @default(false)
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
-  credential         TradingAccountCredential?
-  tradePlans         TradePlanSnapshot[]
-}
-
-model TradingAccountCredential {
-  id                String         @id @default(uuid())
-  tradingAccountId  String         @unique
-  tradingAccount    TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-  encryptedPassword String
-  iv                String
-  authTag           String
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-}
-
-model TradePlanSnapshot {
-  id                    String              @id @default(uuid())
-  tradePlanId           String              @unique
-  analysisId            String
-  signalId              String
-  riskValidationId      String
-  tradingAccountId      String?
-  tradingAccount        TradingAccount?     @relation(fields: [tradingAccountId], references: [id])
-  symbol                String              @default("XAUUSD")
-  timeframe             String              @default("H1")
-  marketCondition       MarketConditionEnum @default(BULLISH)
-  action                TradingActionEnum   @default(BUY)
-  confidence            Int                 @default(85)
-  marketPriceAtCreation Float
-  bid                   Float
-  ask                   Float
-  spreadPoints          Int                 @default(20)
-
-  entryZoneMin    Float
-  entryZoneMax    Float
-  entryPrice      Float
-  stopLoss        Float
-  takeProfit1     Float
-  takeProfit2     Float
-  takeProfit3     Float?
-  riskRewardRatio Float
-
-  riskPercent       Float @default(1.0)
-  riskAmount        Float @default(100.0)
-  calculatedLot     Float @default(0.10)
-  normalizedLot     Float @default(0.10)
-  estimatedLossAtSl Float @default(100.0)
-
-  isEligible        Boolean @default(true)
-  validationStatus  String  @default("APPROVED")
-  validationReasons String
-  validationChecks  String
-
-  keyDrivers            String
-  invalidationCondition String
-  marketNarrative       String
-
-  userConfirmed   Boolean        @default(false)
-  planStatus      PlanStatusEnum @default(PROPOSED)
-  mt5Ticket       String?
-  executedAt      DateTime?
-  actualFillPrice Float?
-
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-}
-
-model CopilotAuditLog {
-  id              String   @id @default(uuid())
-  timestamp       DateTime @default(now())
-  eventType       String
-  userId          String?
-  accountId       String?
-  symbol          String   @default("XAUUSD")
-  relatedEntityId String?
-  idempotencyKey  String?
-  status          String   @default("INFO")
-  reason          String?
-  details         String?
-}
-
-// ======================================================
-// INDODAX / CRYPTO AI ENGINE
-// Isolated from MT5 execution system
-// ======================================================
-
-model IndodaxCredential {
-  id                 String    @id @default(cuid())
-  userId             String    @unique
-  encryptedApiKey    String
-  encryptedApiSecret String
-  apiKeyMasked       String
-  iv                 String
-  authTag            String
-  isActive           Boolean   @default(true)
-  lastSyncAt         DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-
-  @@index([isActive])
-  @@map("indodax_credentials")
-}
-
-model CryptoOrder {
-  id        String @id @default(cuid())
-  userId    String
-  pair      String
-  pairId    String
-  type      String
-  orderType String
-  price     Float
-  amount    Float
-  totalIdr  Float
-  status    String @default("VALIDATING")
-
-  indodaxOrderId String?
-  filledAmount   Float   @default(0)
-  filledPrice    Float?
-
-  estimatedSlippagePercent Float?
-  estimatedVwap            Float?
-
-  idempotencyKey String  @unique
-  errorMessage   String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@index([pairId])
-  @@index([status])
-  @@index([indodaxOrderId])
-  @@index([createdAt])
-  @@map("crypto_orders")
-}
-
-model CryptoExecutionLog {
-  id       String  @id @default(cuid())
-  orderId  String?
-  userId   String
-  pair     String
-  action   String
-  status   String
-  message  String
-  metadata Json?
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([orderId])
-  @@index([pair])
-  @@index([status])
-  @@index([createdAt])
-  @@map("crypto_execution_logs")
-}

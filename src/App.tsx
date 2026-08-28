@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Navigation, ViewTab } from './components/Navigation';
 import { MarketOverviewView } from './components/MarketOverviewView';
 import { LiveAnalysisView } from './components/LiveAnalysisView';
+import { CryptoAiEngineView } from './components/CryptoAiEngineView';
 import { DashboardView } from './components/DashboardView';
 import { FundamentalView } from './components/FundamentalView';
 import { TechnicalView } from './components/TechnicalView';
@@ -269,6 +270,10 @@ export default function App() {
               authToken={authToken}
               onCreditBalanceChanged={(newBal) => setCreditBalance(newBal)}
             />
+          )}
+
+          {activeTab === 'crypto_ai_engine' && (
+            <CryptoAiEngineView authToken={authToken} />
           )}
 
           {activeTab === 'fundamental' && (

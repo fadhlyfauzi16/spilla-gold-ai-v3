@@ -20,6 +20,7 @@ import {
 export type ViewTab =
   | 'market_overview'
   | 'live_analysis'
+  | 'crypto_ai_engine'
   | 'fundamental'
   | 'technical'
   | 'sentiment'
@@ -66,6 +67,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     badge?: string;
   }[] = [
     { id: 'live_analysis', label: 'Live AI Analysis (MT5)', icon: LineChart, badge: 'MT5 CONNECTED' },
+    { id: 'crypto_ai_engine', label: 'Crypto AI Engine', icon: Coins, badge: 'INDODAX' },
     { id: 'follow_master_ai', label: 'Follow Master AI', icon: Users, badge: 'COPY TRADE' },
     { id: 'fundamental', label: 'Fundamental Analysis', icon: Globe },
     { id: 'technical', label: 'Technical Analysis', icon: Gauge },

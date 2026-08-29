@@ -108,13 +108,13 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
     if (slippagePercent > 3.0 || coverage < 95) {
       slippageRiskLevel = 'EXTREME';
       isSafeToExecute = false;
-      warningMessage = `CRITICAL SLIPPAGE: Expected price impact is ${slippagePercent.toFixed(2)}% with ${coverage.toFixed(0)}% liquidity depth coverage. Order size exceeds instant order book depth.`;
+      warningMessage = `CRITICAL SLIPPAGE: Dampak harga ${slippagePercent.toFixed(2)}% dengan cakupan likuiditas ${coverage.toFixed(0)}%. Ukuran order melampaui kedalaman order book instan.`;
     } else if (slippagePercent > 1.5) {
       slippageRiskLevel = 'HIGH';
-      warningMessage = `HIGH SLIPPAGE: Market depth is thin. Expected price impact is ${slippagePercent.toFixed(2)}%.`;
+      warningMessage = `HIGH SLIPPAGE: Kedalaman pasar tipis. Estimasi dampak harga ${slippagePercent.toFixed(2)}%.`;
     } else if (slippagePercent > 0.5) {
       slippageRiskLevel = 'MODERATE';
-      warningMessage = `MODERATE SLIPPAGE: Minor impact expected (${slippagePercent.toFixed(2)}%).`;
+      warningMessage = `MODERATE SLIPPAGE: Dampak harga moderat (${slippagePercent.toFixed(2)}%).`;
     }
 
     setEstimate({
@@ -142,24 +142,24 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
   ];
 
   return (
-    <div className="bg-[#121620] border border-[#232B3E] rounded-2xl p-5 shadow-lg space-y-4">
+    <div className="bg-[#121620] border border-gray-800 rounded-xl p-5 shadow-xl space-y-4 font-mono">
       {/* Title */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pb-3 border-b border-gray-800">
         <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#E5B842]/10 border border-[#E5B842]/30 flex items-center justify-center text-[#E5B842]">
+          <div className="w-8 h-8 rounded-lg bg-[#E5B842]/15 border border-[#E5B842]/30 flex items-center justify-center text-[#E5B842]">
             <Calculator className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">
-              Institutional Slippage & VWAP Simulator
-            </h3>
-            <p className="text-[11px] text-gray-400">Order Book Walk-Through Impact Analysis</p>
+            <h2 className="text-xs font-extrabold text-white uppercase tracking-wider">
+              SLIPPAGE & VWAP SIMULATOR
+            </h2>
+            <p className="text-[10px] text-gray-400">Order Book Walk-Through Impact Analysis</p>
           </div>
         </div>
 
         {estimate && (
           <span
-            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+            className={`px-2.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
               estimate.slippageRiskLevel === 'LOW'
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                 : estimate.slippageRiskLevel === 'MODERATE'
@@ -178,12 +178,12 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Side */}
         <div>
-          <label className="block text-[11px] text-gray-400 font-semibold mb-1">Execution Side</label>
-          <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#0B0E14] border border-[#1F2633] rounded-xl">
+          <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">EXECUTION SIDE</label>
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#0B0E14] border border-gray-800 rounded-lg">
             <button
               type="button"
               onClick={() => setSide('BUY')}
-              className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`py-1.5 rounded text-xs font-black uppercase transition-all ${
                 side === 'BUY'
                   ? 'bg-emerald-500 text-black shadow-md'
                   : 'text-gray-400 hover:text-white'
@@ -194,7 +194,7 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
             <button
               type="button"
               onClick={() => setSide('SELL')}
-              className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`py-1.5 rounded text-xs font-black uppercase transition-all ${
                 side === 'SELL'
                   ? 'bg-rose-500 text-white shadow-md'
                   : 'text-gray-400 hover:text-white'
@@ -207,14 +207,14 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
 
         {/* Amount Input */}
         <div className="md:col-span-2">
-          <div className="flex items-center justify-between text-[11px] text-gray-400 font-semibold mb-1">
-            <span>Simulated Trade Size</span>
-            <div className="flex items-center space-x-1.5">
+          <div className="flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase mb-1">
+            <span>SIMULATED TRADE SIZE</span>
+            <div className="flex items-center space-x-1">
               <button
                 type="button"
                 onClick={() => setUnit('IDR')}
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                  unit === 'IDR' ? 'bg-[#E5B842] text-black' : 'text-gray-400 hover:text-white'
+                className={`text-[9px] font-black px-2 py-0.5 rounded transition-colors ${
+                  unit === 'IDR' ? 'bg-[#E5B842] text-black' : 'text-gray-400 hover:text-white bg-[#0B0E14] border border-gray-800'
                 }`}
               >
                 IDR
@@ -222,8 +222,8 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
               <button
                 type="button"
                 onClick={() => setUnit('ASSET')}
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                  unit === 'ASSET' ? 'bg-[#E5B842] text-black' : 'text-gray-400 hover:text-white'
+                className={`text-[9px] font-black px-2 py-0.5 rounded transition-colors ${
+                  unit === 'ASSET' ? 'bg-[#E5B842] text-black' : 'text-gray-400 hover:text-white bg-[#0B0E14] border border-gray-800'
                 }`}
               >
                 {pair.baseCurrency}
@@ -236,7 +236,7 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
               value={inputAmount}
               onChange={(e) => setInputAmount(e.target.value)}
               placeholder="e.g. 5000000"
-              className="w-full bg-[#0B0E14] border border-[#1F2633] rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#E5B842] transition-colors"
+              className="w-full bg-[#0B0E14] border border-gray-800 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#E5B842] transition-colors"
             />
           </div>
         </div>
@@ -244,7 +244,7 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
 
       {/* Preset Chips */}
       <div className="flex items-center space-x-2">
-        <span className="text-[10px] text-gray-500 uppercase font-semibold">Presets:</span>
+        <span className="text-[9px] text-gray-500 uppercase font-bold">QUICK SIZES:</span>
         {quickPresets.map((p) => (
           <button
             key={p.label}
@@ -253,7 +253,7 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
               setUnit(p.unit);
               setInputAmount(p.value);
             }}
-            className="px-2 py-0.5 rounded-lg bg-[#161B26] hover:bg-[#232B3E] border border-[#232B3E] text-[10px] text-gray-300 font-mono transition-colors"
+            className="px-2.5 py-1 rounded bg-[#0B0E14] hover:bg-gray-800 border border-gray-800 text-[10px] text-gray-300 font-mono transition-colors cursor-pointer"
           >
             {p.label}
           </button>
@@ -262,27 +262,27 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
 
       {/* Results Box */}
       {estimate && (
-        <div className="p-4 rounded-xl bg-[#0B0E14] border border-[#1F2633] space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+        <div className="p-3.5 rounded-lg bg-[#0B0E14] border border-gray-800 space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
             {/* Top of Book */}
-            <div className="p-2 rounded-lg bg-[#121620] border border-[#1F2633]">
-              <div className="text-[10px] text-gray-500 uppercase">Best Book Price</div>
+            <div className="p-2 rounded bg-[#121620] border border-gray-800">
+              <div className="text-[9px] text-gray-500 uppercase font-bold">BEST BOOK PRICE</div>
               <div className="text-xs font-bold font-mono text-gray-300 mt-0.5">
                 Rp {estimate.bestPrice.toLocaleString('id-ID')}
               </div>
             </div>
 
             {/* Estimated VWAP */}
-            <div className="p-2 rounded-lg bg-[#121620] border border-[#1F2633]">
-              <div className="text-[10px] text-gray-500 uppercase">Estimated VWAP</div>
+            <div className="p-2 rounded bg-[#121620] border border-gray-800">
+              <div className="text-[9px] text-gray-500 uppercase font-bold">ESTIMATED VWAP</div>
               <div className="text-xs font-bold font-mono text-[#E5B842] mt-0.5">
                 Rp {estimate.estimatedVwap.toLocaleString('id-ID')}
               </div>
             </div>
 
             {/* Expected Slippage */}
-            <div className="p-2 rounded-lg bg-[#121620] border border-[#1F2633]">
-              <div className="text-[10px] text-gray-500 uppercase">Expected Slippage</div>
+            <div className="p-2 rounded bg-[#121620] border border-gray-800">
+              <div className="text-[9px] text-gray-500 uppercase font-bold">EXPECTED SLIPPAGE</div>
               <div
                 className={`text-xs font-bold font-mono mt-0.5 ${
                   estimate.estimatedSlippagePercent > 1.5
@@ -297,8 +297,8 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
             </div>
 
             {/* Depth Coverage */}
-            <div className="p-2 rounded-lg bg-[#121620] border border-[#1F2633]">
-              <div className="text-[10px] text-gray-500 uppercase">Depth Coverage</div>
+            <div className="p-2 rounded bg-[#121620] border border-gray-800">
+              <div className="text-[9px] text-gray-500 uppercase font-bold">DEPTH COVERAGE</div>
               <div className="text-xs font-bold font-mono text-white mt-0.5">
                 {estimate.liquidityCoveragePercent}%
               </div>
@@ -308,7 +308,7 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
           {/* Warning / Safety Message */}
           {estimate.warningMessage ? (
             <div
-              className={`p-2.5 rounded-lg text-[11px] flex items-center space-x-2 ${
+              className={`p-2.5 rounded text-[10px] flex items-center space-x-2 ${
                 estimate.slippageRiskLevel === 'EXTREME'
                   ? 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
                   : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
@@ -318,10 +318,10 @@ export const CryptoSlippageCalculator: React.FC<CryptoSlippageCalculatorProps> =
               <span>{estimate.warningMessage}</span>
             </div>
           ) : (
-            <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300 flex items-center space-x-2">
+            <div className="p-2.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-300 flex items-center space-x-2">
               <ShieldCheck className="w-4 h-4 shrink-0" />
               <span>
-                Optimal execution condition. Order book has adequate liquidity with minimal price impact.
+                Kondisi likuiditas optimal. Kedalaman order book mencukupi dengan estimasi slippage minimal.
               </span>
             </div>
           )}

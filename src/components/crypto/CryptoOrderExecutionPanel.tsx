@@ -12,6 +12,7 @@ import {
   Info,
   DollarSign,
   AlertCircle,
+  Zap,
 } from 'lucide-react';
 import {
   IndodaxMarketPair,
@@ -56,7 +57,7 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
   const [executionResult, setExecutionResult] = useState<CryptoOrderResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const isConnected = !!account?.isConnected;
+  const isConnected = Boolean(account?.isConnected);
   const availableIdr = account?.availableIdr || 0;
   const baseCurrency = pair.baseCurrency.toUpperCase();
   const availableAsset = account?.balances?.[baseCurrency]?.available || 0;
@@ -126,19 +127,19 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
 
     if (totalIdr < pair.minTotalIdr) {
       setErrorMsg(
-        `Minimum order amount on INDODAX is Rp ${pair.minTotalIdr.toLocaleString('id-ID')}.`
+        `Minimal nilai order INDODAX adalah Rp ${pair.minTotalIdr.toLocaleString('id-ID')}.`
       );
       return;
     }
 
     if (side === 'BUY' && totalIdr > availableIdr) {
-      setErrorMsg(`Insufficient IDR balance (Available: Rp ${availableIdr.toLocaleString('id-ID')}).`);
+      setErrorMsg(`Saldo IDR tidak mencukupi (Tersedia: Rp ${availableIdr.toLocaleString('id-ID')}).`);
       return;
     }
 
     if (side === 'SELL' && totalAsset > availableAsset) {
       setErrorMsg(
-        `Insufficient ${baseCurrency} balance (Available: ${availableAsset.toLocaleString('id-ID', { maximumFractionDigits: 4 })}).`
+        `Saldo ${baseCurrency} tidak mencukupi (Tersedia: ${availableAsset.toLocaleString('id-ID', { maximumFractionDigits: 4 })}).`
       );
       return;
     }
@@ -178,14 +179,14 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
       const data: CryptoOrderResult = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Order submission rejected by INDODAX.');
+        throw new Error(data.message || 'Order submission ditolak oleh INDODAX API.');
       }
 
       setExecutionResult(data);
       setShowConfirmModal(false);
       onOrderExecuted();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Network error executing order on INDODAX.');
+      setErrorMsg(err.message || 'Gagal mengeksekusi order pada INDODAX API.');
       setShowConfirmModal(false);
     } finally {
       setIsSubmitting(false);
@@ -193,34 +194,34 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
   };
 
   return (
-    <div className="bg-[#121620] border border-[#232B3E] rounded-2xl p-5 shadow-lg space-y-4">
+    <div className="bg-[#121620] border border-gray-800 rounded-xl p-5 shadow-xl space-y-4 font-mono">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pb-3 border-b border-gray-800">
         <div className="flex items-center space-x-2.5">
           <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${
               side === 'BUY'
-                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
-                : 'bg-rose-500/10 border border-rose-500/30 text-rose-400'
+                ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
+                : 'bg-rose-500/20 border border-rose-500/40 text-rose-400'
             }`}
           >
             {side}
           </div>
           <div>
-            <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">
-              INDODAX ORDER ROUTER
-            </h3>
-            <p className="text-[11px] text-gray-400">Institutional Execution Gateway</p>
+            <h2 className="text-xs font-extrabold text-white uppercase tracking-wider">
+              INDODAX SPOT ORDER ROUTER
+            </h2>
+            <p className="text-[10px] text-gray-400">Institutional Direct Execution Gateway</p>
           </div>
         </div>
 
         {/* Limit / Market Switch */}
-        <div className="flex items-center space-x-1 p-0.5 bg-[#0B0E14] border border-[#1F2633] rounded-lg">
+        <div className="flex items-center space-x-1 p-0.5 bg-[#0B0E14] border border-gray-800 rounded-lg">
           <button
             type="button"
             onClick={() => setOrderType('LIMIT')}
-            className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
-              orderType === 'LIMIT' ? 'bg-[#232B3E] text-white' : 'text-gray-400 hover:text-white'
+            className={`px-2.5 py-1 rounded text-[10px] font-black uppercase transition-all ${
+              orderType === 'LIMIT' ? 'bg-[#E5B842] text-black shadow-sm' : 'text-gray-400 hover:text-white'
             }`}
           >
             Limit
@@ -231,8 +232,8 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
               setOrderType('MARKET');
               setPriceInput(String(Math.round(currentPrice)));
             }}
-            className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
-              orderType === 'MARKET' ? 'bg-[#232B3E] text-white' : 'text-gray-400 hover:text-white'
+            className={`px-2.5 py-1 rounded text-[10px] font-black uppercase transition-all ${
+              orderType === 'MARKET' ? 'bg-[#E5B842] text-black shadow-sm' : 'text-gray-400 hover:text-white'
             }`}
           >
             Market
@@ -241,11 +242,11 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
       </div>
 
       {/* Side Tabs (BUY / SELL) */}
-      <div className="grid grid-cols-2 gap-2 p-1 bg-[#0B0E14] border border-[#1F2633] rounded-xl">
+      <div className="grid grid-cols-2 gap-2 p-1 bg-[#0B0E14] border border-gray-800 rounded-lg">
         <button
           type="button"
           onClick={() => setSide('BUY')}
-          className={`py-2 rounded-lg text-xs font-black uppercase transition-all ${
+          className={`py-2 rounded text-xs font-black uppercase transition-all cursor-pointer ${
             side === 'BUY'
               ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20'
               : 'text-gray-400 hover:text-white'
@@ -256,7 +257,7 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
         <button
           type="button"
           onClick={() => setSide('SELL')}
-          className={`py-2 rounded-lg text-xs font-black uppercase transition-all ${
+          className={`py-2 rounded text-xs font-black uppercase transition-all cursor-pointer ${
             side === 'SELL'
               ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
               : 'text-gray-400 hover:text-white'
@@ -267,9 +268,9 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
       </div>
 
       {/* Balance Indicator */}
-      <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
-        <span>Available:</span>
-        <span className="font-mono text-white font-semibold">
+      <div className="flex items-center justify-between text-[10px] text-gray-400 px-1 font-bold">
+        <span>TERSEDIA:</span>
+        <span className="font-mono text-white">
           {side === 'BUY'
             ? `Rp ${availableIdr.toLocaleString('id-ID')}`
             : `${availableAsset.toLocaleString('id-ID', { maximumFractionDigits: 4 })} ${baseCurrency}`}
@@ -278,14 +279,14 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
 
       {/* Price Input */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between text-[11px] text-gray-400 font-semibold">
-          <span>Order Price (IDR)</span>
+        <div className="flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase">
+          <span>HARGA ORDER (IDR)</span>
           <div className="flex items-center space-x-2">
             {depth?.asks && depth.asks[0] && (
               <button
                 type="button"
                 onClick={() => setPriceInput(String(depth.asks[0].price))}
-                className="text-[10px] text-emerald-400 hover:underline"
+                className="text-[9px] text-emerald-400 hover:underline"
               >
                 Ask: {depth.asks[0].price.toLocaleString('id-ID')}
               </button>
@@ -294,7 +295,7 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
               <button
                 type="button"
                 onClick={() => setPriceInput(String(depth.bids[0].price))}
-                className="text-[10px] text-rose-400 hover:underline"
+                className="text-[9px] text-rose-400 hover:underline"
               >
                 Bid: {depth.bids[0].price.toLocaleString('id-ID')}
               </button>
@@ -307,15 +308,15 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
             value={priceInput}
             onChange={(e) => setPriceInput(e.target.value)}
             disabled={orderType === 'MARKET'}
-            className="w-full bg-[#0B0E14] border border-[#1F2633] rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#E5B842] transition-colors disabled:opacity-50"
+            className="w-full bg-[#0B0E14] border border-gray-800 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#E5B842] transition-colors disabled:opacity-50"
           />
         </div>
       </div>
 
       {/* Amount in IDR */}
       <div className="space-y-1">
-        <label className="block text-[11px] text-gray-400 font-semibold">
-          Order Amount in IDR
+        <label className="block text-[10px] text-gray-400 font-bold uppercase">
+          NILAI TOTAL ORDER (IDR)
         </label>
         <div className="relative">
           <input
@@ -323,15 +324,15 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
             value={amountIdrInput}
             onChange={(e) => handleAmountIdrChange(e.target.value)}
             placeholder={`Min. Rp ${pair.minTotalIdr.toLocaleString('id-ID')}`}
-            className="w-full bg-[#0B0E14] border border-[#1F2633] rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#E5B842] transition-colors"
+            className="w-full bg-[#0B0E14] border border-gray-800 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#E5B842] transition-colors"
           />
         </div>
       </div>
 
       {/* Amount in Asset */}
       <div className="space-y-1">
-        <label className="block text-[11px] text-gray-400 font-semibold">
-          Quantity ({baseCurrency})
+        <label className="block text-[10px] text-gray-400 font-bold uppercase">
+          JUMLAH KUANTITAS ({baseCurrency})
         </label>
         <div className="relative">
           <input
@@ -339,7 +340,7 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
             value={amountAssetInput}
             onChange={(e) => handleAmountAssetChange(e.target.value)}
             placeholder="0.0000"
-            className="w-full bg-[#0B0E14] border border-[#1F2633] rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#E5B842] transition-colors"
+            className="w-full bg-[#0B0E14] border border-gray-800 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#E5B842] transition-colors"
           />
         </div>
       </div>
@@ -351,10 +352,10 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
             key={pct}
             type="button"
             onClick={() => applyAllocation(pct)}
-            className={`py-1.5 rounded-lg text-[11px] font-bold font-mono transition-all border ${
+            className={`py-1.5 rounded text-[10px] font-black font-mono transition-all border cursor-pointer ${
               selectedAllocation === pct
                 ? 'bg-[#E5B842] text-black border-[#E5B842] shadow-md shadow-[#E5B842]/20'
-                : 'bg-[#161B26] text-gray-300 border-[#232B3E] hover:bg-[#232B3E]'
+                : 'bg-[#0B0E14] text-gray-300 border-gray-800 hover:bg-gray-800'
             }`}
           >
             {pct === 100 ? 'MAX' : `${pct}%`}
@@ -363,13 +364,13 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
       </div>
 
       {/* Slippage Guard Settings */}
-      <div className="p-3 rounded-xl bg-[#0B0E14] border border-[#1F2633] space-y-1.5">
-        <div className="flex items-center justify-between text-[11px] text-gray-400 font-semibold">
+      <div className="p-3 rounded-lg bg-[#0B0E14] border border-gray-800 space-y-1.5">
+        <div className="flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase">
           <div className="flex items-center space-x-1">
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Slippage Guard Protection</span>
+            <span>SLIPPAGE GUARD PROTECTION</span>
           </div>
-          <span className="text-emerald-400 font-mono font-bold">{maxSlippagePercent}% Max</span>
+          <span className="text-emerald-400 font-mono font-bold">{maxSlippagePercent}% MAX</span>
         </div>
         <div className="grid grid-cols-4 gap-1">
           {[0.5, 1.0, 2.0, 3.0].map((tol) => (
@@ -377,10 +378,10 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
               key={tol}
               type="button"
               onClick={() => setMaxSlippagePercent(tol)}
-              className={`py-1 rounded text-[10px] font-mono font-bold transition-colors ${
+              className={`py-1 rounded text-[10px] font-mono font-bold transition-colors cursor-pointer ${
                 maxSlippagePercent === tol
                   ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
-                  : 'bg-[#121620] text-gray-400 hover:text-white'
+                  : 'bg-[#121620] text-gray-400 hover:text-white border border-gray-800'
               }`}
             >
               {tol}%
@@ -391,7 +392,7 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
 
       {/* Error Message */}
       {errorMsg && (
-        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start space-x-2 text-xs text-rose-400">
+        <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-start space-x-2 text-xs text-rose-400">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{errorMsg}</span>
         </div>
@@ -399,13 +400,13 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
 
       {/* Success Notification */}
       {executionResult && (
-        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1 text-xs text-emerald-300">
+        <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 space-y-1 text-xs text-emerald-300">
           <div className="flex items-center space-x-2 font-bold text-emerald-400">
             <CheckCircle2 className="w-4 h-4" />
             <span>{executionResult.message}</span>
           </div>
           {executionResult.indodaxOrderId && (
-            <div className="text-[11px] text-gray-300 font-mono">
+            <div className="text-[10px] text-gray-300 font-mono">
               INDODAX Order ID: #{executionResult.indodaxOrderId}
             </div>
           )}
@@ -417,7 +418,7 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
         type="button"
         onClick={handleOpenConfirm}
         disabled={isSubmitting}
-        className={`w-full py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50 cursor-pointer ${
+        className={`w-full py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50 cursor-pointer active:scale-95 ${
           !isConnected
             ? 'bg-[#E5B842] text-black hover:bg-[#d4a733] shadow-[#E5B842]/20'
             : side === 'BUY'
@@ -428,7 +429,7 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
         {!isConnected ? (
           <>
             <Lock className="w-4 h-4" />
-            <span>Connect INDODAX API To Execute</span>
+            <span>HUBUNGKAN INDODAX API UNTUK EKSEKUSI</span>
           </>
         ) : (
           <>
@@ -442,23 +443,23 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#121620] border border-[#232B3E] rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center space-x-3 pb-3 border-b border-[#232B3E]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-mono">
+          <div className="bg-[#121620] border border-gray-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center space-x-3 pb-3 border-b border-gray-800">
               <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${
                   side === 'BUY' ? 'bg-emerald-500 text-black' : 'bg-rose-500 text-white'
                 }`}
               >
                 {side}
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white uppercase">Confirm INDODAX Order</h4>
-                <p className="text-xs text-gray-400">Institutional Direct Execution</p>
+                <h4 className="text-sm font-black text-white uppercase">KONFIRMASI EKSEKUSI INDODAX</h4>
+                <p className="text-[10px] text-gray-400 font-sans">Institutional Direct Spot Order</p>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-[#0B0E14] border border-[#1F2633] space-y-2 text-xs">
+            <div className="p-3.5 rounded-lg bg-[#0B0E14] border border-gray-800 space-y-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-gray-400">Market Pair</span>
                 <span className="font-bold text-white font-mono">{pair.symbol}</span>
@@ -470,28 +471,28 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-400">Order Price</span>
+                <span className="text-gray-400">Harga Order</span>
                 <span className="font-mono text-white font-bold">
                   Rp {targetPrice.toLocaleString('id-ID')}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-400">Quantity</span>
+                <span className="text-gray-400">Kuantitas</span>
                 <span className="font-mono text-[#E5B842] font-bold">
                   {totalAsset} {baseCurrency}
                 </span>
               </div>
-              <div className="flex items-center justify-between pt-2 border-t border-[#1F2633]">
-                <span className="text-gray-300 font-semibold">Total Order Value</span>
+              <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                <span className="text-gray-300 font-semibold">Total Nilai Order</span>
                 <span className="font-mono text-white font-extrabold text-sm">
                   Rp {totalIdr.toLocaleString('id-ID')}
                 </span>
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300 flex items-center space-x-2">
-              <ShieldCheck className="w-4 h-4 shrink-0" />
-              <span>Slippage Guard active (Max tolerance: {maxSlippagePercent}%).</span>
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-300 flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span>Slippage Guard aktif (Toleransi batas: {maxSlippagePercent}%).</span>
             </div>
 
             <div className="flex items-center justify-end space-x-3 pt-2">
@@ -499,15 +500,15 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
                 disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl text-xs text-gray-400 hover:text-white hover:bg-[#232B3E] transition-colors"
+                className="px-4 py-2 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-800 transition-colors cursor-pointer"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="button"
                 onClick={handleExecute}
                 disabled={isSubmitting}
-                className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
+                className={`px-5 py-2.5 rounded-lg text-xs font-black transition-all flex items-center space-x-2 cursor-pointer ${
                   side === 'BUY'
                     ? 'bg-emerald-500 text-black hover:bg-emerald-400'
                     : 'bg-rose-500 text-white hover:bg-rose-400'
@@ -516,12 +517,12 @@ export const CryptoOrderExecutionPanel: React.FC<CryptoOrderExecutionPanelProps>
                 {isSubmitting ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Transmitting to INDODAX...</span>
+                    <span>Mentransmisikan ke INDODAX...</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-3.5 h-3.5" />
-                    <span>Authorize & Execute</span>
+                    <span>OTORISASI & EKSEKUSI</span>
                   </>
                 )}
               </button>

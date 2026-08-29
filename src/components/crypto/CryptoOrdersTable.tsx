@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import type {
+import {
+  History,
+  ListOrdered,
+  XCircle,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Clock,
+  ExternalLink,
+} from 'lucide-react';
+import {
   CryptoOpenOrder,
   CryptoOrderHistoryItem,
   IndodaxMarketPair,
@@ -8,368 +18,214 @@ import type {
 interface CryptoOrdersTableProps {
   openOrders: CryptoOpenOrder[];
   orderHistory: CryptoOrderHistoryItem[];
-  pair: IndodaxMarketPair | null;
-  isLoading?: boolean;
-  onRefresh?: () => void | Promise<void>;
-  onCancelOrder?: (
-  orderId: string,
-  type: 'BUY' | 'SELL',
-) => void | Promise<void>;
+  pair: IndodaxMarketPair;
+  isLoading: boolean;
+  onRefresh: () => void;
+  onCancelOrder: (orderId: string, type: 'BUY' | 'SELL') => Promise<void>;
 }
-
-type Tab = 'OPEN' | 'HISTORY';
-
-const formatIdr = (value: number): string => {
-  if (!Number.isFinite(value)) return '-';
-
-  return new Intl.NumberFormat('id-ID', {
-    maximumFractionDigits: 0,
-  }).format(value);
-};
-
-const formatAmount = (value: number): string => {
-  if (!Number.isFinite(value)) return '-';
-
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 8,
-  }).format(value);
-};
-
-const formatPrice = (
-  value: number,
-  pair: IndodaxMarketPair | null,
-): string => {
-  if (!Number.isFinite(value)) return '-';
-
-  return new Intl.NumberFormat('id-ID', {
-    minimumFractionDigits: pair?.priceScale ?? 0,
-    maximumFractionDigits: pair?.priceScale ?? 0,
-  }).format(value);
-};
-
-const formatDate = (value: string): string => {
-  if (!value) return '-';
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString('id-ID');
-};
-
-const SideBadge: React.FC<{ side: 'BUY' | 'SELL' }> = ({ side }) => (
-  <span
-    className={`inline-flex rounded px-2 py-1 text-[10px] font-bold ${
-      side === 'BUY'
-        ? 'bg-emerald-500/10 text-emerald-400'
-        : 'bg-red-500/10 text-red-400'
-    }`}
-  >
-    {side}
-  </span>
-);
-
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const normalized = status.toUpperCase();
-
-  let className = 'bg-white/5 text-gray-300';
-
-  if (normalized === 'FILLED') {
-    className = 'bg-emerald-500/10 text-emerald-400';
-  } else if (
-    normalized === 'REJECTED' ||
-    normalized === 'FAILED' ||
-    normalized === 'CANCELLED'
-  ) {
-    className = 'bg-red-500/10 text-red-400';
-  } else if (
-    normalized === 'SUBMITTED' ||
-    normalized === 'PARTIALLY_FILLED' ||
-    normalized === 'OPEN'
-  ) {
-    className = 'bg-yellow-500/10 text-yellow-400';
-  }
-
-  return (
-    <span
-      className={`inline-flex rounded px-2 py-1 text-[10px] font-semibold ${className}`}
-    >
-      {normalized.replace(/_/g, ' ')}
-    </span>
-  );
-};
 
 export const CryptoOrdersTable: React.FC<CryptoOrdersTableProps> = ({
   openOrders,
   orderHistory,
   pair,
-  isLoading = false,
+  isLoading,
   onRefresh,
   onCancelOrder,
 }) => {
-  const [tab, setTab] = useState<Tab>('OPEN');
-  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(
-    null,
-  );
+  const [activeTab, setActiveTab] = useState<'OPEN' | 'HISTORY'>('OPEN');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  const handleCancel = async (order: CryptoOpenOrder) => {
-    if (!onCancelOrder || cancellingOrderId) return;
-
-    const confirmed = window.confirm(
-      `Cancel ${order.type} order ${order.symbol} at Rp ${formatPrice(
-        order.price,
-        pair,
-      )}?`,
-    );
-
-    if (!confirmed) return;
-
+  const handleCancel = async (orderId: string, type: 'BUY' | 'SELL') => {
+    setCancellingId(orderId);
     try {
-      setCancellingOrderId(order.orderId);
-      await onCancelOrder(order.orderId, order.type);
+      await onCancelOrder(orderId, type);
     } finally {
-      setCancellingOrderId(null);
+      setCancellingId(null);
     }
   };
 
   return (
-    <section className="rounded-xl border border-white/10 bg-black/20 p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-white">
-            INDODAX EXECUTION LEDGER
-          </h3>
-
-          <p className="mt-1 text-xs text-gray-500">
-            {pair?.symbol ?? 'Crypto'} • Orders & execution history
-          </p>
+    <div className="bg-[#121620] border border-gray-800 rounded-xl p-5 shadow-xl space-y-4 font-mono">
+      {/* Header & Tabs */}
+      <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setActiveTab('OPEN')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all flex items-center space-x-2 cursor-pointer ${
+              activeTab === 'OPEN'
+                ? 'bg-[#E5B842] text-black shadow-md shadow-[#E5B842]/20'
+                : 'text-gray-400 hover:text-white bg-[#0B0E14] border border-gray-800'
+            }`}
+          >
+            <ListOrdered className="w-4 h-4" />
+            <span>OPEN ORDERS ({openOrders.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('HISTORY')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all flex items-center space-x-2 cursor-pointer ${
+              activeTab === 'HISTORY'
+                ? 'bg-[#E5B842] text-black shadow-md shadow-[#E5B842]/20'
+                : 'text-gray-400 hover:text-white bg-[#0B0E14] border border-gray-800'
+            }`}
+          >
+            <History className="w-4 h-4" />
+            <span>EXECUTION LEDGER</span>
+          </button>
         </div>
 
         <button
-          type="button"
-          onClick={() => void onRefresh?.()}
+          onClick={onRefresh}
           disabled={isLoading}
-          className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+          className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-700/80 transition-colors disabled:opacity-50 cursor-pointer"
+          title="Refresh Orders"
         >
-          {isLoading ? 'SYNCING...' : 'REFRESH'}
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#E5B842]' : ''}`} />
         </button>
       </div>
 
-      <div className="mb-4 flex gap-2 border-b border-white/10">
-        <button
-          type="button"
-          onClick={() => setTab('OPEN')}
-          className={`border-b-2 px-3 py-2 text-xs font-semibold transition ${
-            tab === 'OPEN'
-              ? 'border-yellow-400 text-yellow-400'
-              : 'border-transparent text-gray-500'
-          }`}
-        >
-          OPEN ORDERS ({openOrders.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTab('HISTORY')}
-          className={`border-b-2 px-3 py-2 text-xs font-semibold transition ${
-            tab === 'HISTORY'
-              ? 'border-yellow-400 text-yellow-400'
-              : 'border-transparent text-gray-500'
-          }`}
-        >
-          EXECUTION HISTORY ({orderHistory.length})
-        </button>
-      </div>
-
-      {tab === 'OPEN' ? (
-        <div className="overflow-x-auto">
-          {openOrders.length === 0 ? (
-            <div className="flex min-h-[150px] items-center justify-center rounded-lg border border-dashed border-white/10">
-              <div className="text-center">
-                <div className="text-xs font-medium text-gray-400">
-                  NO OPEN ORDERS
-                </div>
-                <div className="mt-1 text-[10px] text-gray-600">
-                  Active INDODAX limit orders will appear here.
-                </div>
-              </div>
+      {/* Tables */}
+      <div className="overflow-x-auto">
+        {activeTab === 'OPEN' ? (
+          openOrders.length === 0 ? (
+            <div className="p-8 text-center text-xs text-gray-500 space-y-1">
+              <Clock className="w-6 h-6 text-gray-600 mx-auto mb-2" />
+              <p className="font-bold text-gray-400 uppercase">TIDAK ADA OPEN ORDER AKTIF DI INDODAX</p>
+              <p className="text-[10px] text-gray-600 font-sans">Order limit baru akan tampil di sini hingga terisi penuh (filled).</p>
             </div>
           ) : (
-            <table className="w-full min-w-[900px] text-left text-xs">
+            <table className="w-full text-xs text-left">
               <thead>
-                <tr className="border-b border-white/10 text-[10px] uppercase text-gray-500">
-                  <th className="px-3 py-3">Time</th>
-                  <th className="px-3 py-3">Pair</th>
-                  <th className="px-3 py-3">Side</th>
-                  <th className="px-3 py-3 text-right">Price</th>
-                  <th className="px-3 py-3 text-right">Amount</th>
-                  <th className="px-3 py-3 text-right">Remaining</th>
-                  <th className="px-3 py-3 text-right">Total IDR</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3 text-right">Action</th>
+                <tr className="text-gray-400 border-b border-gray-800 text-[10px] uppercase font-bold">
+                  <th className="py-2.5 px-3">Order ID</th>
+                  <th className="py-2.5 px-3">Pair</th>
+                  <th className="py-2.5 px-3">Side</th>
+                  <th className="py-2.5 px-3">Harga (IDR)</th>
+                  <th className="py-2.5 px-3">Jumlah</th>
+                  <th className="py-2.5 px-3">Total (IDR)</th>
+                  <th className="py-2.5 px-3">Waktu</th>
+                  <th className="py-2.5 px-3 text-right">Aksi</th>
                 </tr>
               </thead>
-
-              <tbody>
-                {openOrders.map((order) => (
-                  <tr
-                    key={order.orderId}
-                    className="border-b border-white/5 text-gray-300"
-                  >
-                    <td className="px-3 py-3 text-gray-500">
-                      {formatDate(order.submitTime)}
-                    </td>
-
-                    <td className="px-3 py-3 font-medium text-white">
-                      {order.symbol}
-                    </td>
-
-                    <td className="px-3 py-3">
-                      <SideBadge side={order.type} />
-                    </td>
-
-                    <td className="px-3 py-3 text-right">
-                      Rp {formatPrice(order.price, pair)}
-                    </td>
-
-                    <td className="px-3 py-3 text-right">
-                      {formatAmount(order.originalAmount)}
-                    </td>
-
-                    <td className="px-3 py-3 text-right">
-                      {formatAmount(order.remainAmount)}
-                    </td>
-
-                    <td className="px-3 py-3 text-right">
-                      Rp {formatIdr(order.totalIdr)}
-                    </td>
-
-                    <td className="px-3 py-3">
-                      <StatusBadge status={order.status} />
-                    </td>
-
-                    <td className="px-3 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => void handleCancel(order)}
-                        disabled={
-                          !onCancelOrder ||
-                          cancellingOrderId === order.orderId
-                        }
-                        className="rounded border border-red-500/20 px-3 py-1.5 text-[10px] font-semibold text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+              <tbody className="divide-y divide-gray-800/80 font-mono">
+                {openOrders.map((ord) => (
+                  <tr key={ord.indodaxOrderId} className="hover:bg-[#0B0E14] transition-colors">
+                    <td className="py-2.5 px-3 text-gray-300 font-bold">#{ord.indodaxOrderId}</td>
+                    <td className="py-2.5 px-3 text-white font-semibold">{ord.symbol}</td>
+                    <td className="py-2.5 px-3">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                          ord.type === 'BUY'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        }`}
                       >
-                        {cancellingOrderId === order.orderId
-                          ? 'CANCELLING...'
-                          : 'CANCEL'}
+                        {ord.type}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-white font-bold">Rp {ord.price.toLocaleString('id-ID')}</td>
+                    <td className="py-2.5 px-3 text-gray-300">
+                      {ord.remainAmount.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
+                    </td>
+                    <td className="py-2.5 px-3 text-[#E5B842] font-bold">
+                      Rp {ord.totalIdr.toLocaleString('id-ID')}
+                    </td>
+                    <td className="py-2.5 px-3 text-gray-500 text-[10px]">
+                      {new Date(ord.submitTime).toLocaleTimeString('id-ID', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <button
+                        onClick={() => handleCancel(ord.indodaxOrderId, ord.type)}
+                        disabled={cancellingId === ord.indodaxOrderId}
+                        className="px-2.5 py-1 rounded text-[10px] font-black uppercase text-rose-400 hover:bg-rose-500/10 border border-rose-500/30 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {cancellingId === ord.indodaxOrderId ? 'Cancelling...' : 'Cancel'}
                       </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          {orderHistory.length === 0 ? (
-            <div className="flex min-h-[150px] items-center justify-center rounded-lg border border-dashed border-white/10">
-              <div className="text-center">
-                <div className="text-xs font-medium text-gray-400">
-                  NO EXECUTION HISTORY
-                </div>
-                <div className="mt-1 text-[10px] text-gray-600">
-                  Completed or rejected orders will appear here.
-                </div>
-              </div>
-            </div>
-          ) : (
-            <table className="w-full min-w-[1050px] text-left text-xs">
-              <thead>
-                <tr className="border-b border-white/10 text-[10px] uppercase text-gray-500">
-                  <th className="px-3 py-3">Time</th>
-                  <th className="px-3 py-3">Pair</th>
-                  <th className="px-3 py-3">Side</th>
-                  <th className="px-3 py-3">Type</th>
-                  <th className="px-3 py-3 text-right">Price</th>
-                  <th className="px-3 py-3 text-right">Amount</th>
-                  <th className="px-3 py-3 text-right">Filled</th>
-                  <th className="px-3 py-3 text-right">Fill Price</th>
-                  <th className="px-3 py-3 text-right">Total IDR</th>
-                  <th className="px-3 py-3 text-right">Slippage</th>
-                  <th className="px-3 py-3">Status</th>
+          )
+        ) : orderHistory.length === 0 ? (
+          <div className="p-8 text-center text-xs text-gray-500 space-y-1">
+            <History className="w-6 h-6 text-gray-600 mx-auto mb-2" />
+            <p className="font-bold text-gray-400 uppercase">BELUM ADA LOG RIWAYAT EKSEKUSI</p>
+          </div>
+        ) : (
+          <table className="w-full text-xs text-left">
+            <thead>
+              <tr className="text-gray-400 border-b border-gray-800 text-[10px] uppercase font-bold">
+                <th className="py-2.5 px-3">Waktu</th>
+                <th className="py-2.5 px-3">Pair</th>
+                <th className="py-2.5 px-3">Side</th>
+                <th className="py-2.5 px-3">Harga</th>
+                <th className="py-2.5 px-3">Jumlah</th>
+                <th className="py-2.5 px-3">Total Nilai</th>
+                <th className="py-2.5 px-3">Slippage</th>
+                <th className="py-2.5 px-3 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800/80 font-mono">
+              {orderHistory.map((item) => (
+                <tr key={item.id} className="hover:bg-[#0B0E14] transition-colors">
+                  <td className="py-2.5 px-3 text-gray-500 text-[10px]">
+                    {new Date(item.createdAt).toLocaleString('id-ID', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </td>
+                  <td className="py-2.5 px-3 text-white font-semibold">{item.pair}</td>
+                  <td className="py-2.5 px-3">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                        item.type === 'BUY'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                      }`}
+                    >
+                      {item.type}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-gray-300 font-bold">
+                    Rp {item.price.toLocaleString('id-ID')}
+                  </td>
+                  <td className="py-2.5 px-3 text-gray-300">
+                    {item.amount.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
+                  </td>
+                  <td className="py-2.5 px-3 text-[#E5B842] font-bold">
+                    Rp {item.totalIdr.toLocaleString('id-ID')}
+                  </td>
+                  <td className="py-2.5 px-3 text-gray-400">
+                    {item.estimatedSlippagePercent !== undefined
+                      ? `${item.estimatedSlippagePercent.toFixed(2)}%`
+                      : '0.00%'}
+                  </td>
+                  <td className="py-2.5 px-3 text-right">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                        item.status === 'FILLED'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                          : item.status === 'SUBMITTED'
+                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                          : item.status === 'CANCELLED'
+                          ? 'bg-gray-800 text-gray-400 border border-gray-700'
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                      }`}
+                    >
+                      {item.status}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-
-              <tbody>
-                {orderHistory.map((order) => (
-                  <React.Fragment key={order.id}>
-                    <tr className="border-b border-white/5 text-gray-300">
-                      <td className="px-3 py-3 text-gray-500">
-                        {formatDate(order.createdAt)}
-                      </td>
-
-                      <td className="px-3 py-3 font-medium text-white">
-                        {order.pair}
-                      </td>
-
-                      <td className="px-3 py-3">
-                        <SideBadge side={order.type} />
-                      </td>
-
-                      <td className="px-3 py-3">{order.orderType}</td>
-
-                      <td className="px-3 py-3 text-right">
-                        Rp {formatPrice(order.price, pair)}
-                      </td>
-
-                      <td className="px-3 py-3 text-right">
-                        {formatAmount(order.amount)}
-                      </td>
-
-                      <td className="px-3 py-3 text-right">
-                        {formatAmount(order.filledAmount)}
-                      </td>
-
-                      <td className="px-3 py-3 text-right">
-                        {order.filledPrice !== undefined
-                          ? `Rp ${formatPrice(order.filledPrice, pair)}`
-                          : '-'}
-                      </td>
-
-                      <td className="px-3 py-3 text-right">
-                        Rp {formatIdr(order.totalIdr)}
-                      </td>
-
-                      <td className="px-3 py-3 text-right">
-                        {order.estimatedSlippagePercent !== undefined
-                          ? `${order.estimatedSlippagePercent.toFixed(3)}%`
-                          : '-'}
-                      </td>
-
-                      <td className="px-3 py-3">
-                        <StatusBadge status={order.status} />
-                      </td>
-                    </tr>
-
-                    {order.errorMessage && (
-                      <tr className="border-b border-red-500/10">
-                        <td
-                          colSpan={11}
-                          className="px-3 py-2 text-[10px] text-red-400"
-                        >
-                          {order.errorMessage}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-    </section>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
   );
 };

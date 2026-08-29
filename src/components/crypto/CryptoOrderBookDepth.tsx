@@ -1,279 +1,176 @@
-import React, { useMemo } from 'react';
-import type {
-  IndodaxDepthData,
-  IndodaxMarketPair,
-  IndodaxDepthOrder,
-} from '../../types/crypto';
+import React from 'react';
+import { Layers, TrendingUp, TrendingDown, Scale, Zap, ShieldCheck } from 'lucide-react';
+import { IndodaxDepthData, IndodaxMarketPair } from '../../types/crypto';
 
 interface CryptoOrderBookDepthProps {
   depth: IndodaxDepthData | null;
-  pair: IndodaxMarketPair | null;
+  pair: IndodaxMarketPair;
   onSelectPrice?: (price: number) => void;
 }
 
-const formatIdr = (value: number): string => {
-  if (!Number.isFinite(value)) return '-';
-
-  return new Intl.NumberFormat('id-ID', {
-    maximumFractionDigits: 0,
-  }).format(value);
-};
-
-const formatAmount = (value: number, decimals = 8): string => {
-  if (!Number.isFinite(value)) return '-';
-
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: decimals,
-  }).format(value);
-};
-
-const formatPrice = (
-  value: number,
-  pair: IndodaxMarketPair | null,
-): string => {
-  if (!Number.isFinite(value)) return '-';
-
-  return new Intl.NumberFormat('id-ID', {
-    minimumFractionDigits: pair?.priceScale ?? 0,
-    maximumFractionDigits: pair?.priceScale ?? 0,
-  }).format(value);
-};
-
-const DepthRows: React.FC<{
-  orders: IndodaxDepthOrder[];
-  side: 'BID' | 'ASK';
-  pair: IndodaxMarketPair | null;
-  maxTotal: number;
-  onSelectPrice?: (price: number) => void;
-}> = ({ orders, side, pair, maxTotal, onSelectPrice }) => {
-  if (!orders.length) {
-    return (
-      <div className="py-6 text-center text-xs text-gray-500">
-        NO {side} LIQUIDITY
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-1">
-      {orders.slice(0, 12).map((order, index) => {
-        const width =
-          maxTotal > 0
-            ? Math.min(100, Math.max(2, (order.totalIdr / maxTotal) * 100))
-            : 0;
-
-        return (
-          <button
-            key={`${side}-${order.price}-${index}`}
-            type="button"
-            onClick={() => onSelectPrice?.(order.price)}
-            className="relative grid w-full grid-cols-3 overflow-hidden rounded px-2 py-1.5 text-left text-xs transition hover:bg-white/5"
-            title={`Use ${side.toLowerCase()} price ${formatPrice(
-              order.price,
-              pair,
-            )}`}
-          >
-            <div
-              className={`absolute inset-y-0 ${
-                side === 'BID' ? 'left-0' : 'right-0'
-              } ${
-                side === 'BID' ? 'bg-emerald-500/10' : 'bg-red-500/10'
-              }`}
-              style={{ width: `${width}%` }}
-            />
-
-            <span
-              className={`relative z-10 font-medium ${
-                side === 'BID' ? 'text-emerald-400' : 'text-red-400'
-              }`}
-            >
-              {formatPrice(order.price, pair)}
-            </span>
-
-            <span className="relative z-10 text-right text-gray-300">
-              {formatAmount(order.amount)}
-            </span>
-
-            <span className="relative z-10 text-right text-gray-400">
-              Rp {formatIdr(order.totalIdr)}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-};
-
-export const CryptoOrderBookDepth: React.FC<
-  CryptoOrderBookDepthProps
-> = ({ depth, pair, onSelectPrice }) => {
-  const maxOrderTotal = useMemo(() => {
-    if (!depth) return 0;
-
-    return Math.max(
-      0,
-      ...depth.bids.map((item) => item.totalIdr),
-      ...depth.asks.map((item) => item.totalIdr),
-    );
-  }, [depth]);
-
+export const CryptoOrderBookDepth: React.FC<CryptoOrderBookDepthProps> = ({
+  depth,
+  pair,
+  onSelectPrice,
+}) => {
   if (!depth) {
     return (
-      <section className="rounded-xl border border-white/10 bg-black/20 p-4">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-white">
-            ORDER BOOK & LIQUIDITY DEPTH
-          </h3>
-          <p className="mt-1 text-xs text-gray-500">
-            Waiting for live INDODAX market depth.
-          </p>
-        </div>
-
-        <div className="flex min-h-[240px] items-center justify-center rounded-lg border border-dashed border-white/10">
-          <span className="text-xs font-medium tracking-wider text-gray-500">
-            MARKET DATA UNAVAILABLE
-          </span>
-        </div>
-      </section>
+      <div className="bg-[#121620] border border-gray-800 rounded-xl p-6 flex flex-col items-center justify-center min-h-[300px] text-gray-500 text-xs font-mono">
+        <Layers className="w-8 h-8 text-gray-600 mb-2 animate-pulse" />
+        <span>MEMUAT KEDALAMAN ORDER BOOK INDODAX...</span>
+      </div>
     );
   }
 
-  const imbalance = depth.orderBookImbalancePercent;
-  const imbalanceText =
-    imbalance > 5
-      ? 'BUY PRESSURE'
-      : imbalance < -5
-        ? 'SELL PRESSURE'
-        : 'BALANCED';
+  const bids = depth.bids.slice(0, 10);
+  const asks = depth.asks.slice(0, 10);
+
+  const maxCumulativeIdr = Math.max(
+    bids.length > 0 ? bids[bids.length - 1].cumulativeIdr : 1,
+    asks.length > 0 ? asks[asks.length - 1].cumulativeIdr : 1
+  );
+
+  const buyRatio = depth.buyPressureRatio;
+  const sellRatio = depth.sellPressureRatio;
 
   return (
-    <section className="rounded-xl border border-white/10 bg-black/20 p-4">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-white">
-            ORDER BOOK & LIQUIDITY DEPTH
-          </h3>
-
-          <p className="mt-1 text-xs text-gray-500">
-            {pair?.symbol ?? depth.symbol} • Live INDODAX Depth
-          </p>
-        </div>
-
-        <div className="text-right">
-          <div className="text-[10px] uppercase tracking-wider text-gray-500">
-            Liquidity
+    <div className="bg-[#121620] border border-gray-800 rounded-xl p-5 shadow-xl space-y-4 font-mono">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#E5B842]/15 border border-[#E5B842]/30 flex items-center justify-center text-[#E5B842]">
+            <Layers className="w-4 h-4" />
           </div>
-          <div className="text-xs font-semibold text-yellow-400">
-            {depth.liquidityConcentration}
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-        <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
-          <div className="text-[10px] uppercase text-gray-500">
-            Buy Pressure
-          </div>
-          <div className="mt-1 text-sm font-semibold text-emerald-400">
-            {depth.buyPressureRatio.toFixed(1)}%
+          <div>
+            <h2 className="text-xs font-extrabold text-white uppercase tracking-wider">
+              ORDER FLOW & MARKET DEPTH
+            </h2>
+            <p className="text-[10px] text-gray-400">Live INDODAX Bid/Ask Real-Time Distribution</p>
           </div>
         </div>
 
-        <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
-          <div className="text-[10px] uppercase text-gray-500">
-            Sell Pressure
-          </div>
-          <div className="mt-1 text-sm font-semibold text-red-400">
-            {depth.sellPressureRatio.toFixed(1)}%
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
-          <div className="text-[10px] uppercase text-gray-500">
-            Imbalance
-          </div>
-          <div className="mt-1 text-sm font-semibold text-white">
-            {imbalance.toFixed(1)}%
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
-          <div className="text-[10px] uppercase text-gray-500">
-            Order Flow
-          </div>
-          <div className="mt-1 text-sm font-semibold text-yellow-400">
-            {imbalanceText}
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <div className="mb-1 flex justify-between text-[10px]">
-          <span className="text-emerald-400">
-            BUY {depth.buyPressureRatio.toFixed(1)}%
-          </span>
-          <span className="text-red-400">
-            SELL {depth.sellPressureRatio.toFixed(1)}%
+        {/* Liquidity Tier Badge */}
+        <div className="flex items-center space-x-2">
+          <span
+            className={`px-2.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
+              depth.liquidityConcentration === 'HIGH'
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                : depth.liquidityConcentration === 'MODERATE'
+                ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                : depth.liquidityConcentration === 'LOW'
+                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+            }`}
+          >
+            {depth.liquidityConcentration} LIQUIDITY
           </span>
         </div>
+      </div>
 
-        <div className="flex h-2 overflow-hidden rounded-full bg-white/5">
+      {/* Order Flow Pressure Meter */}
+      <div className="p-3 rounded-lg bg-[#0B0E14] border border-gray-800 space-y-2">
+        <div className="flex items-center justify-between text-xs font-bold">
+          <div className="flex items-center space-x-1 text-emerald-400 text-[11px]">
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>BUY PRESSURE: {buyRatio}%</span>
+          </div>
+          <div className="flex items-center space-x-1 text-gray-400 font-mono text-[10px]">
+            <Scale className="w-3 h-3 text-[#E5B842]" />
+            <span>
+              Imbalance: {depth.orderBookImbalancePercent > 0 ? '+' : ''}
+              {depth.orderBookImbalancePercent}%
+            </span>
+          </div>
+          <div className="flex items-center space-x-1 text-rose-400 text-[11px]">
+            <span>SELL: {sellRatio}%</span>
+            <TrendingDown className="w-3.5 h-3.5" />
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="h-2 rounded-full bg-gray-900 overflow-hidden flex border border-gray-800">
           <div
-            className="bg-emerald-500"
-            style={{ width: `${depth.buyPressureRatio}%` }}
+            className="h-full bg-emerald-500 transition-all duration-500"
+            style={{ width: `${buyRatio}%` }}
           />
           <div
-            className="bg-red-500"
-            style={{ width: `${depth.sellPressureRatio}%` }}
+            className="h-full bg-rose-500 transition-all duration-500"
+            style={{ width: `${sellRatio}%` }}
           />
+        </div>
+
+        <div className="flex items-center justify-between text-[9px] text-gray-500 font-mono pt-0.5">
+          <span>Bid Depth: Rp {(depth.totalBidDepthIdr / 1_000_000).toFixed(1)}M</span>
+          <span>Ask Depth: Rp {(depth.totalAskDepthIdr / 1_000_000).toFixed(1)}M</span>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div>
-          <div className="mb-2 grid grid-cols-3 px-2 text-[10px] uppercase text-gray-500">
-            <span>Bid Price</span>
-            <span className="text-right">Amount</span>
-            <span className="text-right">Total IDR</span>
+      {/* Split Order Book Table */}
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        {/* BIDS (BUY ORDERS) */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[10px] font-bold text-emerald-400 pb-1 border-b border-emerald-500/20 px-1">
+            <span>BID (IDR)</span>
+            <span>VOL ({pair.baseCurrency})</span>
           </div>
-
-          <DepthRows
-            orders={depth.bids}
-            side="BID"
-            pair={pair}
-            maxTotal={maxOrderTotal}
-            onSelectPrice={onSelectPrice}
-          />
-
-          <div className="mt-2 text-[10px] text-gray-500">
-            Total Bid Depth: Rp {formatIdr(depth.totalBidDepthIdr)}
+          <div className="space-y-0.5 max-h-[220px] overflow-y-auto pr-1">
+            {bids.map((b, idx) => {
+              const depthPct = Math.min(100, (b.cumulativeIdr / maxCumulativeIdr) * 100);
+              return (
+                <div
+                  key={`bid-${idx}`}
+                  onClick={() => onSelectPrice && onSelectPrice(b.price)}
+                  className="relative flex items-center justify-between py-1 px-1.5 rounded cursor-pointer hover:bg-emerald-500/15 transition-colors font-mono text-[11px] group"
+                  title="Klik untuk mengisi harga di form eksekusi"
+                >
+                  <div
+                    className="absolute inset-y-0 right-0 bg-emerald-500/10 rounded transition-all"
+                    style={{ width: `${depthPct}%` }}
+                  />
+                  <span className="relative z-10 font-bold text-emerald-400 group-hover:underline">
+                    {b.price.toLocaleString('id-ID')}
+                  </span>
+                  <span className="relative z-10 text-gray-300 text-[10px]">
+                    {b.amount.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div>
-          <div className="mb-2 grid grid-cols-3 px-2 text-[10px] uppercase text-gray-500">
-            <span>Ask Price</span>
-            <span className="text-right">Amount</span>
-            <span className="text-right">Total IDR</span>
+        {/* ASKS (SELL ORDERS) */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[10px] font-bold text-rose-400 pb-1 border-b border-rose-500/20 px-1">
+            <span>ASK (IDR)</span>
+            <span>VOL ({pair.baseCurrency})</span>
           </div>
-
-          <DepthRows
-            orders={depth.asks}
-            side="ASK"
-            pair={pair}
-            maxTotal={maxOrderTotal}
-            onSelectPrice={onSelectPrice}
-          />
-
-          <div className="mt-2 text-[10px] text-gray-500">
-            Total Ask Depth: Rp {formatIdr(depth.totalAskDepthIdr)}
+          <div className="space-y-0.5 max-h-[220px] overflow-y-auto pr-1">
+            {asks.map((a, idx) => {
+              const depthPct = Math.min(100, (a.cumulativeIdr / maxCumulativeIdr) * 100);
+              return (
+                <div
+                  key={`ask-${idx}`}
+                  onClick={() => onSelectPrice && onSelectPrice(a.price)}
+                  className="relative flex items-center justify-between py-1 px-1.5 rounded cursor-pointer hover:bg-rose-500/15 transition-colors font-mono text-[11px] group"
+                  title="Klik untuk mengisi harga di form eksekusi"
+                >
+                  <div
+                    className="absolute inset-y-0 right-0 bg-rose-500/10 rounded transition-all"
+                    style={{ width: `${depthPct}%` }}
+                  />
+                  <span className="relative z-10 font-bold text-rose-400 group-hover:underline">
+                    {a.price.toLocaleString('id-ID')}
+                  </span>
+                  <span className="relative z-10 text-gray-300 text-[10px]">
+                    {a.amount.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
-
-      <div className="mt-4 text-right text-[10px] text-gray-600">
-        Updated {new Date(depth.updatedAt).toLocaleTimeString('id-ID')}
-      </div>
-    </section>
+    </div>
   );
 };

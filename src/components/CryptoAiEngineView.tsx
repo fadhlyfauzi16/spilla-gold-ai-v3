@@ -41,6 +41,7 @@ import { CryptoAiRecommendationCard } from './crypto/CryptoAiRecommendationCard'
 import { CryptoOrderExecutionPanel } from './crypto/CryptoOrderExecutionPanel';
 import { CryptoOrdersTable } from './crypto/CryptoOrdersTable';
 import { ConnectIndodaxModal } from './crypto/ConnectIndodaxModal';
+import { IndodaxCandlestickChart } from './crypto/IndodaxCandlestickChart';
 
 interface CryptoAiEngineViewProps {
   authToken?: string | null;
@@ -81,7 +82,6 @@ export const CryptoAiEngineView: React.FC<CryptoAiEngineViewProps> = ({ authToke
   const [tempPriceInput, setTempPriceInput] = useState<string>('');
   const [lastAnalysisTimestamp, setLastAnalysisTimestamp] = useState<string | null>(null);
 
-  const tvContainerRef = useRef<HTMLDivElement>(null);
   const executionPanelRef = useRef<HTMLDivElement>(null);
   const isMountedRef = useRef(true);
 
@@ -206,59 +206,6 @@ export const CryptoAiEngineView: React.FC<CryptoAiEngineViewProps> = ({ authToke
 
     return () => clearInterval(interval);
   }, [selectedPair.id, timeframe]);
-
-  // Embed TradingView Widget for the active crypto pair
-  useEffect(() => {
-    if (!tvContainerRef.current) return;
-    tvContainerRef.current.innerHTML = '';
-
-    const getTradingViewSymbol = (pairId: string, base: string) => {
-      const b = base.toUpperCase();
-      if (pairId === 'castidr') return 'CASTIDR';
-      if (['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'MATIC', 'DOT', 'AVAX'].includes(b)) {
-        return `BINANCE:${b}USDT`;
-      }
-      return `INDODAX:${b}IDR`;
-    };
-
-    const tvInterval =
-      timeframe === '1m'
-        ? '1'
-        : timeframe === '5m'
-        ? '5'
-        : timeframe === '15m'
-        ? '15'
-        : timeframe === '1h'
-        ? '60'
-        : timeframe === '4h'
-        ? '240'
-        : 'D';
-
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.type = 'text/javascript';
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      autosize: true,
-      symbol: getTradingViewSymbol(selectedPair.id, selectedPair.baseCurrency),
-      interval: tvInterval,
-      timezone: 'Asia/Jakarta',
-      theme: 'dark',
-      style: '1',
-      locale: 'en',
-      enable_publishing: false,
-      backgroundColor: '#0B0E14',
-      gridColor: 'rgba(255, 255, 255, 0.05)',
-      hide_side_toolbar: false,
-      allow_symbol_change: true,
-      save_image: true,
-      calendar: false,
-      hide_volume: false,
-      support_host: 'https://www.tradingview.com',
-    });
-
-    tvContainerRef.current.appendChild(script);
-  }, [selectedPair.id, selectedPair.baseCurrency, timeframe]);
 
   // Disconnect handler
   const handleDisconnect = async () => {
@@ -514,72 +461,17 @@ export const CryptoAiEngineView: React.FC<CryptoAiEngineViewProps> = ({ authToke
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Left Column: Live Chart & Technical Confluence Matrix (7 Cols) */}
         <div className="lg:col-span-7 xl:col-span-7 flex flex-col space-y-4">
-          {/* Live TradingView Chart Area */}
-          <div className="bg-[#0B0E14] border border-gray-800 rounded-xl overflow-hidden shadow-2xl min-h-[520px] relative flex flex-col">
-            {/* Live Chart Header */}
-            <div className="bg-[#121620] px-4 py-3 border-b border-gray-800 flex items-center justify-between text-xs font-mono">
-              <div className="flex items-center space-x-2">
-                <Activity className="w-4 h-4 text-[#E5B842]" />
-                <span className="font-extrabold text-white uppercase tracking-wider">
-                  TRADINGVIEW LIVE FEED • {selectedPair.symbol} ({timeframe})
-                </span>
-              </div>
-              <div className="flex items-center space-x-2 text-[10px]">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span className="text-emerald-400 font-bold uppercase tracking-wider">
-                  LIVE FEED • INDODAX
-                </span>
-              </div>
-            </div>
-
-            {/* TradingView Advanced Embed Container */}
-            <div ref={tvContainerRef} className="flex-1 w-full h-full min-h-[440px]" />
-
-            {/* Scanning / Analyzing Shimmer Overlay */}
-            {isLoadingAi && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center space-y-3 z-30 font-mono">
-                <div className="w-12 h-12 rounded-xl bg-[#E5B842]/20 border border-[#E5B842]/40 flex items-center justify-center text-[#E5B842] animate-bounce">
-                  <Bot className="w-6 h-6" />
-                </div>
-                <div className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#E5B842] animate-spin" />
-                  MEMPROSES ANALISIS ORDER FLOW & STRUKTUR PASAR...
-                </div>
-              </div>
-            )}
-
-            {/* Live Chart Bottom Footer with ANALYSIS NOW Button */}
-            <div className="bg-[#121620] px-4 py-3 border-t border-gray-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-400 uppercase font-bold text-[10px]">STATUS ANALISIS:</span>
-                {lastAnalysisTimestamp ? (
-                  <span className="text-emerald-400 font-bold text-[10px]">
-                    Terakhir: {lastAnalysisTimestamp} WIB
-                  </span>
-                ) : (
-                  <span className="text-gray-400 font-bold text-[10px]">Siap Dianalisis</span>
-                )}
-              </div>
-
-              <button
-                onClick={handleTriggerAiAnalysis}
-                disabled={isLoadingAi}
-                className="px-6 py-2.5 rounded-lg bg-[#E5B842] hover:bg-[#d4a737] active:scale-95 text-black font-extrabold text-xs sm:text-sm shadow-md shadow-[#E5B842]/20 cursor-pointer flex items-center gap-2 transition-all disabled:opacity-50"
-              >
-                {isLoadingAi ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin text-black" />
-                    <span>MENGANALISIS...</span>
-                  </>
-                ) : (
-                  <>
-                    <Activity className="w-4 h-4 text-black" />
-                    <span>ANALYSIS NOW</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+          {/* Real INDODAX Native Candlestick Chart Area */}
+          <IndodaxCandlestickChart
+            pair={selectedPair}
+            timeframe={timeframe}
+            currentPrice={customExecutionPrice || ticker?.lastPrice}
+            recommendation={recommendation}
+            technicals={technicals}
+            isLoadingAi={isLoadingAi}
+            lastAnalysisTimestamp={lastAnalysisTimestamp}
+            onTriggerAiAnalysis={handleTriggerAiAnalysis}
+          />
 
           {/* Multi-Timeframe & Technical Confluence Matrix (Exact Match to LiveAnalysisView) */}
           {technicals && (

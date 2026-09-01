@@ -351,7 +351,71 @@ class IndodaxMarketDataService {
   }
 
   /**
-   * Fetches real historical candlestick / kline data from INDODAX
+   * Aggregates official 1-minute INDODAX candles into 5-minute candles
+   * aligned to real 5-minute clock boundaries (e.g., 10:00-10:04 -> 10:00, 10:05-10:09 -> 10:05).
+   * Strictly uses only official INDODAX 1m candle data without mock or synthetic interpolation.
+   */
+  public aggregate1mTo5mCandles(oneMinCandles: IndodaxCandle[], limit: number = 100): IndodaxCandle[] {
+    if (!oneMinCandles || oneMinCandles.length === 0) return [];
+
+    // Group 1m candles by 5-minute (300 seconds) boundary
+    const buckets = new Map<number, IndodaxCandle[]>();
+
+    for (const c of oneMinCandles) {
+      const rawTime = typeof c.time === 'number' ? c.time : parseInt(String(c.time), 10);
+      const timeSec = rawTime > 1e11 ? Math.floor(rawTime / 1000) : rawTime;
+      if (isNaN(timeSec) || timeSec <= 0) continue;
+
+      // 5-minute alignment: e.g. 10:00:00 - 10:04:59 -> 10:00:00 bucket
+      const bucketTime = Math.floor(timeSec / 300) * 300;
+
+      const group = buckets.get(bucketTime) || [];
+      group.push({
+        time: timeSec,
+        open: Number(c.open),
+        high: Number(c.high),
+        low: Number(c.low),
+        close: Number(c.close),
+        volume: Number(c.volume || 0),
+      });
+      buckets.set(bucketTime, group);
+    }
+
+    const aggregated: IndodaxCandle[] = [];
+    const sortedBucketTimes = Array.from(buckets.keys()).sort((a, b) => a - b);
+
+    for (const bTime of sortedBucketTimes) {
+      const group = buckets.get(bTime)!;
+      if (group.length === 0) continue;
+
+      // Sort chronological within the bucket
+      group.sort((a, b) => a.time - b.time);
+
+      const open = group[0].open;
+      const high = Math.max(...group.map((c) => c.high));
+      const low = Math.min(...group.map((c) => c.low));
+      const close = group[group.length - 1].close;
+      const volume = group.reduce((sum, c) => sum + (c.volume || 0), 0);
+
+      aggregated.push({
+        time: bTime,
+        open,
+        high,
+        low,
+        close,
+        volume: Number(volume.toFixed(4)),
+      });
+    }
+
+    // Return the most recent 'limit' 5m candles
+    return aggregated.slice(-limit);
+  }
+
+  /**
+   * Fetches real historical candlestick / kline data from INDODAX.
+   * For native timeframes (1m, 15m, 30m, 1h, 4h, 1d), requests INDODAX TradingView history directly.
+   * For 5m, fetches official INDODAX 1m candles and aggregates them into 5m candles aligned by 5-minute boundaries.
+   * NEVER generates synthetic, mock, or random candles.
    */
   public async getKlines(
     pairId: string,
@@ -359,40 +423,91 @@ class IndodaxMarketDataService {
     limit: number = 100
   ): Promise<IndodaxCandle[]> {
     const pair = this.resolvePair(pairId);
-    const cacheKey = `${pair.id}_${timeframe}_${limit}`;
+    const normalizedTf = timeframe.toLowerCase();
+    const cacheKey = `${pair.id}_${normalizedTf}_${limit}`;
     const cached = this.klinesCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < 10000) {
       return cached.data;
     }
 
+    const tvSymbol = pair.symbol.replace('/', '').toUpperCase();
+    const to = Math.floor(Date.now() / 1000);
+
     try {
-      // Map timeframe to TradingView resolution
-      let resolution = '15';
-      let timeframeSeconds = 15 * 60;
-      if (timeframe === '1m') {
-        resolution = '1';
-        timeframeSeconds = 60;
-      } else if (timeframe === '5m') {
-        resolution = '5';
-        timeframeSeconds = 5 * 60;
-      } else if (timeframe === '15m') {
-        resolution = '15';
-        timeframeSeconds = 15 * 60;
-      } else if (timeframe === '1h') {
-        resolution = '60';
-        timeframeSeconds = 60 * 60;
-      } else if (timeframe === '4h') {
-        resolution = '240';
-        timeframeSeconds = 4 * 60 * 60;
-      } else if (timeframe === '1d') {
-        resolution = 'D';
-        timeframeSeconds = 24 * 60 * 60;
+      // 1. If 5m is requested: Fetch official INDODAX 1m candles and aggregate into 5m
+      if (normalizedTf === '5m') {
+        // Need at least limit * 5 one-minute candles, plus safety buffer for market gaps
+        const oneMinLimit = Math.max(limit * 5 + 60, 300);
+        const from = to - oneMinLimit * 60;
+        const url = `https://indodax.com/tradingview/history?symbol=${tvSymbol}&resolution=1&from=${from}&to=${to}`;
+
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'SPILLA-GOLD-QUANT/1.0' },
+          signal: AbortSignal.timeout(6000),
+        });
+
+        if (res.ok) {
+          const json: any = await res.json();
+          if (json && json.s === 'ok' && Array.isArray(json.t) && json.t.length > 0) {
+            const raw1mCandles: IndodaxCandle[] = [];
+            for (let i = 0; i < json.t.length; i++) {
+              const timeSec = Number(json.t[i]);
+              if (!isNaN(timeSec) && timeSec > 0) {
+                raw1mCandles.push({
+                  time: timeSec,
+                  open: Number(json.o[i]),
+                  high: Number(json.h[i]),
+                  low: Number(json.l[i]),
+                  close: Number(json.c[i]),
+                  volume: Number(json.v[i] || 0),
+                });
+              }
+            }
+
+            if (raw1mCandles.length > 0) {
+              const aggregated5m = this.aggregate1mTo5mCandles(raw1mCandles, limit);
+              if (aggregated5m.length > 0) {
+                this.klinesCache.set(cacheKey, { data: aggregated5m, timestamp: Date.now() });
+                return aggregated5m;
+              }
+            }
+          }
+        }
+
+        // Return stale cache if available, else empty array
+        return cached?.data || [];
       }
 
-      const to = Math.floor(Date.now() / 1000);
-      const from = to - limit * timeframeSeconds;
+      // 2. For native supported INDODAX timeframes
+      let resolution = '15';
+      let timeframeSeconds = 15 * 60;
 
-      const tvSymbol = pair.symbol.replace('/', '');
+      if (normalizedTf === '1m') {
+        resolution = '1';
+        timeframeSeconds = 60;
+      } else if (normalizedTf === '15m') {
+        resolution = '15';
+        timeframeSeconds = 15 * 60;
+      } else if (normalizedTf === '30m') {
+        resolution = '30';
+        timeframeSeconds = 30 * 60;
+      } else if (normalizedTf === '1h' || normalizedTf === '60m') {
+        resolution = '60';
+        timeframeSeconds = 60 * 60;
+      } else if (normalizedTf === '4h' || normalizedTf === '240m') {
+        resolution = '240';
+        timeframeSeconds = 4 * 60 * 60;
+      } else if (normalizedTf === '1d' || normalizedTf === 'd') {
+        resolution = 'D';
+        timeframeSeconds = 24 * 60 * 60;
+      } else {
+        // Fallback to 15m native if unrecognized
+        resolution = '15';
+        timeframeSeconds = 15 * 60;
+      }
+
+      // Buffer time calculation
+      const from = to - Math.max(limit * timeframeSeconds * 2, timeframeSeconds * 30);
       const url = `https://indodax.com/tradingview/history?symbol=${tvSymbol}&resolution=${resolution}&from=${from}&to=${to}`;
 
       const res = await fetch(url, {
@@ -405,93 +520,34 @@ class IndodaxMarketDataService {
         if (json && json.s === 'ok' && Array.isArray(json.t) && json.t.length > 0) {
           const candles: IndodaxCandle[] = [];
           for (let i = 0; i < json.t.length; i++) {
-            candles.push({
-              time: Number(json.t[i]),
-              open: Number(json.o[i]),
-              high: Number(json.h[i]),
-              low: Number(json.l[i]),
-              close: Number(json.c[i]),
-              volume: Number(json.v[i]),
-            });
+            const timeSec = Number(json.t[i]);
+            if (!isNaN(timeSec) && timeSec > 0) {
+              candles.push({
+                time: timeSec,
+                open: Number(json.o[i]),
+                high: Number(json.h[i]),
+                low: Number(json.l[i]),
+                close: Number(json.c[i]),
+                volume: Number(json.v[i] || 0),
+              });
+            }
           }
+
           if (candles.length > 0) {
-            this.klinesCache.set(cacheKey, { data: candles, timestamp: Date.now() });
-            return candles;
+            // Sort ascending and slice to limit
+            candles.sort((a, b) => a.time - b.time);
+            const sliced = candles.slice(-limit);
+            this.klinesCache.set(cacheKey, { data: sliced, timestamp: Date.now() });
+            return sliced;
           }
-        }
-      }
-
-      // If TradingView endpoint fails, reconstruct recent candles from recent trades and ticker
-      const trades = await this.getTrades(pair.id);
-      const ticker = await this.getTicker(pair.id);
-
-      if (ticker && trades.length > 0) {
-        const candles = this.synthesizeRecentCandlesFromTrades(trades, ticker, timeframeSeconds, limit);
-        if (candles.length > 0) {
-          this.klinesCache.set(cacheKey, { data: candles, timestamp: Date.now() });
-          return candles;
         }
       }
 
       return cached?.data || [];
     } catch (err: any) {
-      console.warn(`[INDODAX Market Data] Klines fetch error for ${pair.id}:`, err.message);
+      console.warn(`[INDODAX Market Data] Klines fetch error for ${pair.id} (${timeframe}):`, err.message);
       return cached?.data || [];
     }
-  }
-
-  private synthesizeRecentCandlesFromTrades(
-    trades: IndodaxTradeData[],
-    ticker: IndodaxTickerData,
-    tfSeconds: number,
-    limit: number
-  ): IndodaxCandle[] {
-    if (trades.length === 0) return [];
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    const buckets: Map<number, { prices: number[]; vol: number }> = new Map();
-
-    for (let i = limit; i >= 0; i--) {
-      const bucketTime = Math.floor((nowSec - i * tfSeconds) / tfSeconds) * tfSeconds;
-      buckets.set(bucketTime, { prices: [], vol: 0 });
-    }
-
-    trades.forEach((t) => {
-      const bTime = Math.floor(t.date / tfSeconds) * tfSeconds;
-      const b = buckets.get(bTime);
-      if (b) {
-        b.prices.push(t.price);
-        b.vol += t.amount;
-      }
-    });
-
-    let prevClose = ticker.lastPrice;
-    const candles: IndodaxCandle[] = [];
-
-    Array.from(buckets.keys())
-      .sort((a, b) => a - b)
-      .forEach((time) => {
-        const b = buckets.get(time)!;
-        if (b.prices.length > 0) {
-          const open = b.prices[0];
-          const close = b.prices[b.prices.length - 1];
-          const high = Math.max(...b.prices);
-          const low = Math.min(...b.prices);
-          prevClose = close;
-          candles.push({ time, open, high, low, close, volume: b.vol });
-        } else {
-          candles.push({
-            time,
-            open: prevClose,
-            high: prevClose,
-            low: prevClose,
-            close: prevClose,
-            volume: 0,
-          });
-        }
-      });
-
-    return candles;
   }
 }
 

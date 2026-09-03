@@ -41,8 +41,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   // Check if active tab belongs to the "More" category
   const moreTabIds: ViewTab[] = [
-    'crypto_ai_engine',
-    'follow_master_ai',
+    'ai_recommendation',
+    'history',
     'fundamental',
     'technical',
     'sentiment',
@@ -62,8 +62,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   }[] = [
     { id: 'market_overview', label: 'Dashboard', icon: Globe },
     { id: 'live_analysis', label: 'Live AI', icon: LineChart },
-    { id: 'ai_recommendation', label: 'AI Rec', icon: Bot, badge: recommendationSignal || 'BUY' },
-    { id: 'history', label: 'History', icon: History },
+    { id: 'crypto_ai_engine', label: 'Crypto', icon: Coins },
+    { id: 'follow_master_ai', label: 'Follow AI', icon: Users },
   ];
 
   // Secondary items shown inside "More" drawer
@@ -75,18 +75,17 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     desc?: string;
   }[] = [
     {
-      id: 'crypto_ai_engine',
-      label: 'Crypto AI Engine',
-      icon: Coins,
-      badge: 'INDODAX',
-      desc: 'Real-time spot order book & AI conviction',
+      id: 'ai_recommendation',
+      label: 'AI Recommendation',
+      icon: Bot,
+      badge: recommendationSignal || 'BUY',
+      desc: 'Multi-indicator quantitative trade setups',
     },
     {
-      id: 'follow_master_ai',
-      label: 'Follow Master AI',
-      icon: Users,
-      badge: 'COPY TRADE',
-      desc: 'Institutional automated execution copying',
+      id: 'history',
+      label: 'Analysis History',
+      icon: History,
+      desc: 'Institutional forecast verification record',
     },
     {
       id: 'fundamental',

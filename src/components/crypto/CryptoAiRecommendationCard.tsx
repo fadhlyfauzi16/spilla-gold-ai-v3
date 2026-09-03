@@ -133,111 +133,160 @@ export const CryptoAiRecommendationCard: React.FC<CryptoAiRecommendationCardProp
 
       {/* Top Hero Banner: DIRECTION BIAS, AI CONFIDENCE, and QUICK EXECUTE */}
       <div className="p-3 sm:p-4 bg-gradient-to-br from-[#0e121a] to-[#07090e] border border-[#E5B842]/50 rounded-2xl shadow-xl space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 items-stretch">
           {/* 1. DIRECTION BIAS CARD */}
           <div
-            className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+            className={`p-3.5 sm:p-4 rounded-xl border flex flex-col justify-between transition-all min-h-[136px] ${
               isBuy
-                ? 'bg-emerald-950/25 border-emerald-500/40 shadow-sm shadow-emerald-950/40'
+                ? 'bg-emerald-950/20 border-emerald-500/30 shadow-sm shadow-emerald-950/40'
                 : isSell
-                ? 'bg-rose-950/25 border-rose-500/40 shadow-sm shadow-rose-950/40'
-                : 'bg-amber-950/25 border-amber-500/40 shadow-sm shadow-amber-950/40'
+                ? 'bg-rose-950/20 border-rose-500/30 shadow-sm shadow-rose-950/40'
+                : 'bg-amber-950/20 border-amber-500/30 shadow-sm shadow-amber-950/40'
             }`}
           >
-            <div className="flex items-center space-x-3">
+            {/* Top row: Label & Direction Icon Indicator */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-[#E5B842]" />
+                <span>DIRECTION BIAS</span>
+              </div>
               <div
-                className={`w-11 h-11 rounded-xl flex items-center justify-center font-black shrink-0 ${
+                className={`w-6 h-6 rounded-lg flex items-center justify-center font-black shrink-0 ${
                   isBuy
-                    ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/30'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                     : isSell
-                    ? 'bg-rose-500 text-black shadow-md shadow-rose-500/30'
-                    : 'bg-amber-500 text-black shadow-md shadow-amber-500/30'
+                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                 }`}
               >
                 {isBuy ? (
-                  <ArrowUpRight className="w-6 h-6 stroke-[3]" />
+                  <ArrowUpRight className="w-3.5 h-3.5 stroke-[3]" />
                 ) : isSell ? (
-                  <ArrowDownRight className="w-6 h-6 stroke-[3]" />
+                  <ArrowDownRight className="w-3.5 h-3.5 stroke-[3]" />
                 ) : (
-                  <Clock className="w-6 h-6 stroke-[3]" />
+                  <Clock className="w-3.5 h-3.5 stroke-[3]" />
                 )}
               </div>
-              <div>
-                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-[#E5B842]" />
-                  DIRECTION BIAS
-                </div>
-                <div className="text-xl sm:text-2xl font-black tracking-tight leading-none mt-0.5">
-                  <span className={isBuy ? 'text-emerald-400' : isSell ? 'text-rose-400' : 'text-amber-400'}>
-                    {recommendation.action.replace('_', ' ')}
-                  </span>
-                </div>
-                <div className="text-[9px] text-gray-400 font-medium mt-0.5">
-                  {isBuy ? 'Strong accumulation pressure' : isSell ? 'Distribution / profit taking' : 'Neutral order flow'}
-                </div>
+            </div>
+
+            {/* Main: Primary Direction */}
+            <div className="my-1">
+              <div
+                className={`text-2xl sm:text-3xl font-black tracking-tight leading-none ${
+                  isBuy ? 'text-emerald-400' : isSell ? 'text-rose-400' : 'text-amber-400'
+                }`}
+              >
+                {directionText}
+              </div>
+            </div>
+
+            {/* Bottom: Accent bar & Secondary description */}
+            <div className="space-y-1.5">
+              <div className="w-full bg-gray-800/80 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 w-full ${
+                    isBuy ? 'bg-emerald-400' : isSell ? 'bg-rose-400' : 'bg-amber-400'
+                  }`}
+                />
+              </div>
+              <div className="text-[10px] text-gray-400 font-medium truncate">
+                {isBuy ? 'Stronger Technical Bias' : isSell ? 'Distribution Pressure' : 'Neutral Order Flow'}
               </div>
             </div>
           </div>
 
           {/* 2. AI CONFIDENCE CARD */}
-          <div className="p-3 rounded-xl bg-[#121620]/90 border border-gray-800 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-11 h-11 rounded-xl bg-[#E5B842]/15 border border-[#E5B842]/30 flex items-center justify-center shrink-0">
-                <Bot className="w-6 h-6 text-[#E5B842]" />
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[#121620]/95 border border-gray-800 flex flex-col justify-between transition-all min-h-[136px]">
+            {/* Top row: Label & Compact Badge */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                <Bot className="w-3.5 h-3.5 text-[#E5B842]" />
+                <span>AI CONFIDENCE</span>
               </div>
-              <div>
-                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                  AI CONFIDENCE
-                </div>
-                <div className="text-xl sm:text-2xl font-black text-[#E5B842] font-mono tracking-tight leading-none mt-0.5">
-                  {recommendation.confidence}%
-                </div>
-                <div className="text-[9px] text-gray-400 font-medium mt-0.5">Order flow conviction</div>
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded font-black tracking-wider uppercase ${
+                  recommendation.confidence >= 80
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : recommendation.confidence >= 60
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                }`}
+              >
+                {recommendation.confidence >= 80 ? 'HIGH' : recommendation.confidence >= 60 ? 'MEDIUM' : 'LOW'}
+              </span>
+            </div>
+
+            {/* Main: Percentage as strongest visual element */}
+            <div className="my-1">
+              <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight leading-none">
+                {recommendation.confidence}%
               </div>
             </div>
-            <span
-              className={`text-[10px] px-2.5 py-1 rounded-lg font-black tracking-wider uppercase shadow-inner ${
-                recommendation.confidence >= 80
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                  : recommendation.confidence >= 60
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-              }`}
-            >
-              {recommendation.confidence >= 80 ? 'HIGH' : recommendation.confidence >= 60 ? 'MEDIUM' : 'LOW'}
-            </span>
+
+            {/* Bottom: Horizontal confidence meter & Confluence Conviction */}
+            <div className="space-y-1.5">
+              <div className="w-full bg-gray-800/80 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    recommendation.confidence >= 80
+                      ? 'bg-emerald-400'
+                      : recommendation.confidence >= 60
+                      ? 'bg-[#E5B842]'
+                      : 'bg-rose-400'
+                  }`}
+                  style={{ width: `${Math.min(Math.max(recommendation.confidence, 0), 100)}%` }}
+                />
+              </div>
+              <div className="text-[10px] text-gray-400 font-medium truncate">
+                Confluence Conviction
+              </div>
+            </div>
           </div>
 
-          {/* 3. INSTANT DISPATCH / DIRECT EXECUTION */}
-          <div className="p-3 rounded-xl bg-[#121620]/90 border border-gray-800 flex items-center justify-between gap-2">
-            <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
-                <Zap className="w-6 h-6 text-blue-400" />
+          {/* 3. ACTION AREA: APPLY */}
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[#121620]/95 border border-gray-800 flex flex-col justify-between transition-all min-h-[136px]">
+            {/* Top row: Label & Status Indicator */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                <Zap className="w-3.5 h-3.5 text-blue-400" />
+                <span>EXECUTION ROUTER</span>
               </div>
-              <div className="min-w-0">
-                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1 truncate">
-                  INSTANT SPOT
-                </div>
-                <div className="text-xs sm:text-sm font-black text-white flex items-center gap-1.5 mt-0.5 truncate">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                  SPOT ROUTER
-                </div>
-                <div className="text-[9px] text-emerald-400/90 font-medium truncate">Ready to trade</div>
+              <span className="text-[10px] px-2 py-0.5 rounded font-black tracking-wider uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                SPOT ROUTER
+              </span>
+            </div>
+
+            {/* Main: Clean Full-width Action Button */}
+            <div className="my-1">
+              <button
+                onClick={() => onApplyToOrder(recommendation)}
+                className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] ${
+                  isBuy
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/25 ring-1 ring-emerald-300/40'
+                    : isSell
+                    ? 'bg-rose-500 hover:bg-rose-400 text-black shadow-rose-500/25 ring-1 ring-rose-300/40'
+                    : 'bg-[#E5B842] hover:bg-[#d4a737] text-black shadow-[#E5B842]/25 ring-1 ring-[#E5B842]/40'
+                }`}
+              >
+                <Zap className="w-4 h-4 fill-current" />
+                <span>APPLY</span>
+              </button>
+            </div>
+
+            {/* Bottom: Accent bar & Secondary label */}
+            <div className="space-y-1.5">
+              <div className="w-full bg-gray-800/80 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 w-full ${
+                    isBuy ? 'bg-emerald-400' : isSell ? 'bg-rose-400' : 'bg-[#E5B842]'
+                  }`}
+                />
+              </div>
+              <div className="text-[10px] text-gray-400 font-medium truncate">
+                Direct Spot Order Flow
               </div>
             </div>
-            <button
-              onClick={() => onApplyToOrder(recommendation)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-md flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 ${
-                isBuy
-                  ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/30 ring-1 ring-emerald-300/50'
-                  : isSell
-                  ? 'bg-rose-500 hover:bg-rose-400 text-black shadow-rose-500/30 ring-1 ring-rose-300/50'
-                  : 'bg-[#E5B842] hover:bg-[#d4a737] text-black shadow-[#E5B842]/30'
-              }`}
-            >
-              <Zap className="w-4 h-4 fill-current" />
-              <span>APPLY</span>
-            </button>
           </div>
         </div>
       </div>

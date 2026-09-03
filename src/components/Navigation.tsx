@@ -125,8 +125,8 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   return (
     <aside
-      className={`bg-[#0F1115] border-r border-gray-800/90 p-2.5 shrink-0 transition-all duration-300 font-mono flex flex-col justify-between ${
-        isCollapsed ? 'w-16' : 'w-full md:w-64'
+      className={`hidden md:flex bg-[#0F1115] border-r border-gray-800/90 p-2.5 shrink-0 transition-all duration-300 font-mono flex-col justify-between ${
+        isCollapsed ? 'w-16' : 'w-64'
       }`}
     >
       <div className="space-y-3">

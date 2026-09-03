@@ -18,6 +18,7 @@ import { AuthView } from './components/AuthView';
 import { AdminDashboardView } from './components/AdminDashboardView';
 import { SpillaAssistantModal } from './components/SpillaAssistantModal';
 import { CreditWalletModal } from './components/CreditWalletModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import spillaLogo from './assets/images/spilla_gold_logo_1786418245382.jpg';
 import { RecommendationResponse, MarketPrice, AuthUser } from './types';
 import { Bot, MessageSquare } from 'lucide-react';
@@ -206,6 +207,20 @@ export default function App() {
     );
   }
 
+  const handleTabChange = (tab: ViewTab) => {
+    setIsAdminViewActive(false);
+    if (tab === 'credit_wallet') {
+      setIsCreditWalletOpen(true);
+      return;
+    }
+    setActiveTab(tab);
+    if (tab === 'follow_master_ai') {
+      navigateTo('/dashboard/follow-master-ai');
+    } else if (window.location.pathname === '/dashboard/follow-master-ai') {
+      navigateTo('/');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#08090C] text-gray-300 flex flex-col font-sans selection:bg-[#E5B842]/30 selection:text-amber-200">
       {/* Top Header */}
@@ -231,22 +246,10 @@ export default function App() {
       />
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Terminal Sidebar Navigation */}
+        {/* Terminal Sidebar Navigation (Desktop only) */}
         <Navigation
           activeTab={activeTab}
-          onTabChange={(tab) => {
-            setIsAdminViewActive(false);
-            if (tab === 'credit_wallet') {
-              setIsCreditWalletOpen(true);
-              return;
-            }
-            setActiveTab(tab);
-            if (tab === 'follow_master_ai') {
-              navigateTo('/dashboard/follow-master-ai');
-            } else if (window.location.pathname === '/dashboard/follow-master-ai') {
-              navigateTo('/');
-            }
-          }}
+          onTabChange={handleTabChange}
           recommendationSignal={recommendationData?.recommendation}
           isAdmin={currentUser.role === 'ADMIN'}
           onNavigateToAdmin={() => setIsAdminViewActive(true)}
@@ -254,7 +257,7 @@ export default function App() {
         />
 
         {/* Main View Workspace Area */}
-        <main className="flex-1 p-3 lg:p-5 overflow-y-auto w-full max-w-[1800px] mx-auto">
+        <main className="flex-1 p-2.5 sm:p-3 lg:p-5 pb-24 md:pb-5 overflow-y-auto w-full max-w-full md:max-w-[1800px] mx-auto">
           {activeTab === 'market_overview' && (
             <MarketOverviewView
               currentUser={currentUser}
@@ -310,8 +313,8 @@ export default function App() {
         </main>
       </div>
 
-      {/* Terminal Footer Status Bar */}
-      <footer className="bg-[#0B0D12] border-t border-gray-800/90 px-5 py-2 text-gray-500 font-mono text-[10px] uppercase tracking-wider flex flex-wrap items-center justify-between gap-2 shrink-0">
+      {/* Terminal Footer Status Bar (Desktop only) */}
+      <footer className="hidden md:flex bg-[#0B0D12] border-t border-gray-800/90 px-5 py-2 text-gray-500 font-mono text-[10px] uppercase tracking-wider flex-wrap items-center justify-between gap-2 shrink-0">
         <div className="flex items-center space-x-3">
           <span className="text-[#E5B842] font-bold">SPILLA GOLD QUANTITATIVE WORKSTATION</span>
           <span>•</span>
@@ -328,16 +331,27 @@ export default function App() {
         </div>
       </footer>
 
+      {/* Fixed Mobile Bottom Navigation */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        recommendationSignal={recommendationData?.recommendation}
+        isAdmin={currentUser.role === 'ADMIN'}
+        onNavigateToAdmin={() => setIsAdminViewActive(true)}
+        creditBalance={creditBalance}
+        onOpenCreditWallet={() => setIsCreditWalletOpen(true)}
+      />
+
       {/* Floating SPILLA AI Assistant Widget Trigger Button */}
       <button
         onClick={() => setIsAssistantOpen(true)}
-        className="fixed bottom-12 right-6 z-40 p-2.5 bg-gradient-to-r from-[#E5B842] via-amber-400 to-[#E5B842] text-black font-black rounded-full shadow-2xl hover:scale-105 transition-all flex items-center gap-2 cursor-pointer border-2 border-amber-300 group"
+        className="fixed bottom-20 md:bottom-12 right-4 md:right-6 z-40 p-2 sm:p-2.5 bg-gradient-to-r from-[#E5B842] via-amber-400 to-[#E5B842] text-black font-black rounded-full shadow-2xl hover:scale-105 transition-all flex items-center gap-2 cursor-pointer border-2 border-amber-300 group"
         title="SPILLA AI Assistant"
       >
         <img
           src={spillaLogo}
           alt="SPILLA GOLD Logo"
-          className="w-7 h-7 rounded-full object-cover border border-black/40 shrink-0"
+          className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border border-black/40 shrink-0"
           referrerPolicy="no-referrer"
         />
         <span className="hidden sm:inline text-xs font-black tracking-wider uppercase pr-1 text-black">

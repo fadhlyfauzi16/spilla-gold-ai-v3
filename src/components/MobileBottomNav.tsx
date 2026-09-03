@@ -63,7 +63,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     { id: 'market_overview', label: 'Dashboard', icon: Globe },
     { id: 'live_analysis', label: 'Live AI', icon: LineChart },
     { id: 'crypto_ai_engine', label: 'Crypto', icon: Coins },
-    { id: 'follow_master_ai', label: 'Follow AI', icon: Users },
+    { id: 'follow_master_ai', label: 'Follow Master', icon: Users },
   ];
 
   // Secondary items shown inside "More" drawer
@@ -173,7 +173,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   )}
                 </div>
 
-                <span className={`text-[10px] tracking-tight mt-1 truncate max-w-[62px] ${
+                <span className={`text-[9px] min-[390px]:text-[10px] tracking-tight mt-1 truncate max-w-full px-0.5 ${
                   isActive ? 'font-black text-[#E5B842]' : 'font-semibold text-gray-400'
                 }`}>
                   {item.label}

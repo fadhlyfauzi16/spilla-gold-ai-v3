@@ -15,6 +15,7 @@ import { eaRouter } from './server/routes/eaRoutes.js';
 import { authRouter } from './server/routes/authRoutes.js';
 import { adminRouter } from './server/routes/adminRoutes.js';
 import { copytradeRouter } from './server/routes/copytradeRoutes.js';
+import { telegramRouter } from './server/routes/telegramRoutes.js';
 
 import {
   technicalRouter,
@@ -32,7 +33,10 @@ import { snapshotRouter } from './server/routes/snapshotRoutes.js';
 import { copilotRouter } from './server/routes/copilotRoutes.js';
 import { tradeRouter } from './server/routes/tradeRoutes.js';
 import { mt5WorkerRouter } from './server/routes/mt5WorkerRoutes.js';
-import { creditRouter, adminCreditRouter } from './server/routes/creditRoutes.js';
+import {
+  creditRouter,
+  adminCreditRouter,
+} from './server/routes/creditRoutes.js';
 
 // ======================================================
 // CRYPTO AI ENGINE — ISOLATED INDODAX MODULE
@@ -44,7 +48,12 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  app.use(
+    express.urlencoded({
+      extended: true,
+      limit: '10mb',
+    }),
+  );
 
   // ======================================================
   // HEALTH CHECK
@@ -73,6 +82,15 @@ async function startServer() {
   // ======================================================
   app.use('/api/auth', authRouter);
   app.use('/api/admin', adminRouter);
+
+  // ======================================================
+  // TELEGRAM NOTIFICATION GATEWAY — ADMIN ONLY
+  // ======================================================
+  app.use(
+    '/api/admin/telegram',
+    telegramRouter,
+  );
+
   app.use('/api/copytrade', copytradeRouter);
 
   // ======================================================
@@ -129,23 +147,32 @@ async function startServer() {
 
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(
+      process.cwd(),
+      'dist',
+    );
 
     app.use(express.static(distPath));
 
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.sendFile(
+        path.join(distPath, 'index.html'),
+      );
     });
   }
 
   // ======================================================
   // START SERVER
   // ======================================================
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(
-      `SPILLA GOLD Analysis Engine running on http://0.0.0.0:${PORT}`,
-    );
-  });
+  app.listen(
+    PORT,
+    '0.0.0.0',
+    () => {
+      console.log(
+        `SPILLA GOLD Analysis Engine running on http://0.0.0.0:${PORT}`,
+      );
+    },
+  );
 }
 
 startServer();

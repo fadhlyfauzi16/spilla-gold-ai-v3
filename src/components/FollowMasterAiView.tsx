@@ -19,7 +19,7 @@ import {
 import { TraderLoginModal } from './TraderLoginModal';
 
 export const FollowMasterAiView: React.FC = () => {
-  const brokerRegisterUrl = 'https://ma.valetax-indonesia.com/guest/ct-strategies/5545426?ib=4905748';
+  const brokerRegisterUrl = 'https://ma.valetax-indonesia.com/p/4905748';
   const UNIVERSAL_MASTER_REGISTRATION_LINK =
     'https://ma.valetax-indonesia.com/guest/ct-strategies/5545426?ib=4905748';
 

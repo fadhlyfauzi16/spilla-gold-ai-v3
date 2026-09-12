@@ -19,9 +19,9 @@ import {
 import { TraderLoginModal } from './TraderLoginModal';
 
 export const FollowMasterAiView: React.FC = () => {
-  const brokerRegisterUrl = 'https://cp2.aimsdagang.com/register?referral2=30072436';
+  const brokerRegisterUrl = 'https://ma.valetax-indonesia.com/guest/ct-strategies/5545426?ib=4905748';
   const UNIVERSAL_MASTER_REGISTRATION_LINK =
-    'https://social.aimsxchange.com/portal/registration/subscription/82123/SpillaSeribu';
+    'https://ma.valetax-indonesia.com/guest/ct-strategies/5545426?ib=4905748';
 
   const [selectedPkgForLogin, setSelectedPkgForLogin] = useState<{ id: string; name: string; ctaUrl: string } | null>(null);
   const [isTraderLoginOpen, setIsTraderLoginOpen] = useState<boolean>(false);
@@ -43,7 +43,7 @@ export const FollowMasterAiView: React.FC = () => {
       tagline: 'Start Small • Learn • Grow',
       description:
         'Pilihan awal bagi investor yang ingin mulai mengenal sistem Copy Trade SPILLA GOLD dengan modal terjangkau.',
-      minDeposit: '$50',
+      minDeposit: '$1',
       accessFee: '$10',
       profitShare: '70% Investor : 30% Master',
       accessType: 'Lifetime (S&K)',

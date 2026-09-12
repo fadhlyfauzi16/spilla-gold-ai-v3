@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../db/prisma.js';
 import { db } from '../db/database.js';
@@ -288,9 +288,9 @@ adminRouter.get('/mt5/accounts', requireAdmin, async (req, res) => {
         userName: userInfo?.fullName || (acc.userId ? `User (${acc.userId.slice(0, 8)})` : 'Trader Member'),
         userEmail: userInfo?.email || 'user@spillagold.com',
         userAccountType: userInfo?.accountType || acc.accountType || 'Trader Individu',
-        broker: acc.broker || 'AIMS',
+        broker: acc.broker || 'VALETAX',
         accountNumber: acc.accountNumber,
-        brokerServer: acc.brokerServer || 'AIMS-Live',
+        brokerServer: acc.brokerServer || 'Valetax-Live',
         accountType: acc.accountType || 'STANDARD',
         currency: acc.currency || 'USD',
         workerId: acc.workerId,
@@ -526,5 +526,6 @@ adminRouter.post('/mt5/accounts/:accountNumber/reset-worker', requireAdmin, asyn
     return res.status(500).json({ success: false, message: 'Gagal mereset binding worker MT5.' });
   }
 });
+
 
 

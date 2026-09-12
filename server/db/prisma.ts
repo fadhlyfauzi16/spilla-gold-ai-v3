@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+﻿import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
@@ -404,7 +404,7 @@ class MemoryCreditTopUpStore {
         accountNumber: '0771360059',
         accountName: 'Sri Hartono',
         status: 'CONFIRMED',
-        referenceNotes: 'AIMS-TRADER-INITIAL',
+        referenceNotes: 'VALETAX-TRADER-INITIAL',
         adminNotes: 'Confirmed by Admin',
         confirmedBy: 'usr-admin-001',
         confirmedByName: 'Master Admin SPILLA',
@@ -620,8 +620,8 @@ class MemoryTradingAccountStore {
         id: 'acc-mt5-demo',
         userId: 'usr-trader-002',
         accountNumber: 'MT5-DEMO-01',
-        broker: 'AIMS',
-        brokerServer: 'AIMS-Live',
+        broker: 'VALETAX',
+        brokerServer: 'Valetax-Live',
         accountType: 'STANDARD',
         currency: 'USD',
         workerId: null,
@@ -641,8 +641,8 @@ class MemoryTradingAccountStore {
         id: 'acc-88201923',
         userId: 'usr-trader-002',
         accountNumber: '88201923',
-        broker: 'AIMS',
-        brokerServer: 'AIMS-Live',
+        broker: 'VALETAX',
+        brokerServer: 'Valetax-Live',
         accountType: 'PRO',
         currency: 'USD',
         workerId: null,
@@ -662,8 +662,8 @@ class MemoryTradingAccountStore {
         id: 'acc-88204811',
         userId: 'usr-admin-001',
         accountNumber: '88204811',
-        broker: 'AIMS',
-        brokerServer: 'AIMS-Live',
+        broker: 'VALETAX',
+        brokerServer: 'Valetax-Live',
         accountType: 'INSTITUTIONAL',
         currency: 'USD',
         workerId: null,
@@ -737,8 +737,8 @@ class MemoryTradingAccountStore {
       id: `acc-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: args.data.userId || null,
       accountNumber: String(args.data.accountNumber).trim(),
-      broker: args.data.broker || 'AIMS',
-      brokerServer: args.data.brokerServer || 'AIMS-Live',
+      broker: args.data.broker || 'VALETAX',
+      brokerServer: args.data.brokerServer || 'Valetax-Live',
       accountType: args.data.accountType || 'STANDARD',
       currency: args.data.currency || 'USD',
       workerId: args.data.workerId || null,
@@ -1340,5 +1340,6 @@ export async function seedDefaultUsers() {
 }
 
 seedDefaultUsers();
+
 
 

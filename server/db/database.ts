@@ -1,4 +1,4 @@
-import {
+﻿import {
   AnalysisHistoryRecord,
   CollectorStatus,
   EngineSettings,
@@ -149,7 +149,7 @@ class InMemoryDatabase {
         id: 'TLOG-1001',
         identifier: 'trader1@email.com',
         accountNumber: '88201923',
-        brokerServer: 'AIMS-Live',
+        brokerServer: 'Valetax-Live',
         loginDate: '11-08-2026',
         loginTime: '20:00:00',
         status: 'SUCCESS',
@@ -160,7 +160,7 @@ class InMemoryDatabase {
         id: 'TLOG-1002',
         identifier: 'trader2@email.com',
         accountNumber: '88204811',
-        brokerServer: 'AIMS-Live',
+        brokerServer: 'Valetax-Live',
         loginDate: '11-08-2026',
         loginTime: '20:15:00',
         status: 'SUCCESS',
@@ -466,7 +466,7 @@ class InMemoryDatabase {
       id: `TLOG-${Date.now()}`,
       identifier: record.identifier.trim(),
       accountNumber: record.accountNumber ? record.accountNumber.trim() : '-',
-      brokerServer: record.brokerServer ? record.brokerServer.trim() : 'AIMS-Live',
+      brokerServer: record.brokerServer ? record.brokerServer.trim() : 'Valetax-Live',
       loginDate,
       loginTime,
       status: record.status || 'SUCCESS',
@@ -483,3 +483,4 @@ class InMemoryDatabase {
 }
 
 export const db = new InMemoryDatabase();
+

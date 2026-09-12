@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { getPrismaClient } from '../db/prisma.js';
 import { encryptMt5Password } from '../services/mt5CredentialService.js';
@@ -117,11 +117,11 @@ mt5WorkerRouter.post('/accounts', requireAuth, async (req: any, res: any) => {
     const trimmedTradingPassword = tradingPassword.trim();
 
     // 4. Validate Broker & Broker Server
-    let trimmedBroker = broker && typeof broker === 'string' && broker.trim() ? broker.trim() : 'AIMS';
+    let trimmedBroker = broker && typeof broker === 'string' && broker.trim() ? broker.trim() : 'VALETAX';
     if (trimmedBroker === 'OTHER') {
       trimmedBroker = brokerName && typeof brokerName === 'string' && brokerName.trim() ? brokerName.trim() : 'OTHER';
     }
-    const trimmedBrokerServer = brokerServer && typeof brokerServer === 'string' && brokerServer.trim() ? brokerServer.trim() : 'AIMS-Live';
+    const trimmedBrokerServer = brokerServer && typeof brokerServer === 'string' && brokerServer.trim() ? brokerServer.trim() : 'Valetax-Live';
 
     // 5. Duplicate Account Protection
     const existingAccount = await prisma.tradingAccount.findUnique({
@@ -638,3 +638,4 @@ mt5WorkerRouter.patch('/accounts/:accountNumber/execution', requireAuth, async (
     return res.status(500).json({ success: false, message: error?.message || 'Failed to update execution switch' });
   }
 });
+

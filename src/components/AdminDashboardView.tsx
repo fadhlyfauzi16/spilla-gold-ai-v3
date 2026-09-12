@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Users,
@@ -223,7 +223,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         index + 1,
         `"${item.identifier}"`,
         `"${item.accountNumber || '-'}"`,
-        `"${item.brokerServer || 'AIMS-Live'}"`,
+        `"${item.brokerServer || 'Valetax-Live'}"`,
         `"${item.loginDate}"`,
         `"${item.loginTime}"`,
         `"${item.status}"`,
@@ -734,7 +734,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           {item.accountNumber || '-'}
                         </td>
                         <td className="py-3.5 px-4 text-cyan-400 font-mono">
-                          {item.brokerServer || 'AIMS-Live'}
+                          {item.brokerServer || 'Valetax-Live'}
                         </td>
                         <td className="py-3.5 px-4 text-gray-300 font-mono">
                           {item.loginDate}
@@ -779,3 +779,4 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     </div>
   );
 };
+

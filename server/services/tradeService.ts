@@ -1,4 +1,4 @@
-import { TradeExecutionOrder, TradeOrderStatus } from '../../src/types.js';
+﻿import { TradeExecutionOrder, TradeOrderStatus } from '../../src/types.js';
 import { symbolService } from './symbolService.js';
 
 export const MT5_EXECUTION_MODE: 'TEST' | 'LIVE' = 'TEST';
@@ -161,7 +161,7 @@ export class TradeService {
         valid: false,
         statusCode: 409,
         code: 'DUPLICATE_SIGNAL',
-        message: 'DUPLICATE SIGNAL — ORDER ALREADY DISPATCHED',
+        message: 'DUPLICATE SIGNAL â€” ORDER ALREADY DISPATCHED',
       };
     }
 
@@ -327,7 +327,7 @@ export class TradeService {
 
     // Diagnostic Logging in Execution Gate
     console.log(
-      `[EXECUTION PAYLOAD]\nSymbol=${canonical}\nSide=${side}\nEntry=${numEntry}\nSL=${numSL}\nTP1=${numTP1}\nTP2=${payload.takeProfit2 ? Number(payload.takeProfit2) : '—'}\nLot=${numericLot}`
+      `[EXECUTION PAYLOAD]\nSymbol=${canonical}\nSide=${side}\nEntry=${numEntry}\nSL=${numSL}\nTP1=${numTP1}\nTP2=${payload.takeProfit2 ? Number(payload.takeProfit2) : 'â€”'}\nLot=${numericLot}`
     );
 
     // A. Symbol Plausible Price Range Advisory Check (Advisory warning only - does NOT hard-block execution)
@@ -488,8 +488,8 @@ export class TradeService {
       accountNumber,
       targetWorkerId,
       userId,
-      broker = 'AIMS',
-      brokerServer = 'AIMS-Live',
+      broker = 'VALETAX',
+      brokerServer = 'Valetax-Live',
       symbol = 'XAUUSD',
       side,
       orderType = 'MARKET',
@@ -567,7 +567,7 @@ export class TradeService {
       success: true,
       statusCode: 200,
       code: 'ORDER_DISPATCHED',
-      message: `ORDER DISPATCHED ✓ Order ${cleanSignalId} enqueued for MT5 execution.`,
+      message: `ORDER DISPATCHED âœ“ Order ${cleanSignalId} enqueued for MT5 execution.`,
       order,
     };
   }
@@ -831,3 +831,4 @@ export class TradeService {
 }
 
 export const tradeService = new TradeService();
+

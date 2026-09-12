@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   X,
   Lock,
@@ -32,7 +32,7 @@ export const TraderLoginModal: React.FC<TraderLoginModalProps> = ({
   const [identifier, setIdentifier] = useState<string>('');
   const [accountNumber, setAccountNumber] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [brokerServer, setBrokerServer] = useState<string>('AIMS-Live');
+  const [brokerServer, setBrokerServer] = useState<string>('Valetax-Live');
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -95,7 +95,7 @@ export const TraderLoginModal: React.FC<TraderLoginModalProps> = ({
           setIdentifier('');
           setAccountNumber('');
           setPassword('');
-          setBrokerServer('AIMS-Live');
+          setBrokerServer('Valetax-Live');
           setSuccessMessage(null);
           onClose();
         }, 800);
@@ -246,7 +246,7 @@ export const TraderLoginModal: React.FC<TraderLoginModalProps> = ({
               <input
                 type="text"
                 required
-                placeholder="Contoh: AIMS-Live / AIMS-Server"
+                placeholder="Contoh: Valetax-Live / Server Valetax"
                 value={brokerServer}
                 onChange={(e) => setBrokerServer(e.target.value)}
                 disabled={loading}
@@ -276,10 +276,11 @@ export const TraderLoginModal: React.FC<TraderLoginModalProps> = ({
           </form>
 
           <p className="text-[10px] text-gray-500 text-center leading-normal">
-            🔒 Keamanan terjamin. Data login dicatat secara terenkripsi untuk verifikasi otentikasi Copy Trade.
+            ðŸ”’ Keamanan terjamin. Data login dicatat secara terenkripsi untuk verifikasi otentikasi Copy Trade.
           </p>
         </div>
       </div>
     </div>
   );
 };
+

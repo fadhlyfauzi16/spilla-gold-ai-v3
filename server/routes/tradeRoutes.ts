@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { tradeService, MT5_EXECUTION_MODE } from '../services/tradeService.js';
 import { symbolService } from '../services/symbolService.js';
 import { getPrismaClient } from '../db/prisma.js';
@@ -163,7 +163,7 @@ tradeRouter.post('/execute', requireAuth, async (req: any, res: any) => {
 
     // Temporary Diagnostic Logging
     console.log(
-      `[EXECUTION PAYLOAD]\nSymbol=${canonicalSymbol}\nSide=${payload.side}\nEntry=${numEntry}\nSL=${numSL}\nTP1=${numTP1}\nTP2=${numTP2 ?? '—'}\nLot=${numLot}`
+      `[EXECUTION PAYLOAD]\nSymbol=${canonicalSymbol}\nSide=${payload.side}\nEntry=${numEntry}\nSL=${numSL}\nTP1=${numTP1}\nTP2=${numTP2 ?? 'â€”'}\nLot=${numLot}`
     );
 
     const orderPayload = {
@@ -178,8 +178,8 @@ tradeRouter.post('/execute', requireAuth, async (req: any, res: any) => {
       accountId: tradingAccount.accountNumber,
       targetWorkerId: tradingAccount.workerId,
       userId: currentUser.id,
-      broker: tradingAccount.broker || 'AIMS',
-      brokerServer: tradingAccount.brokerServer || 'AIMS-Live',
+      broker: tradingAccount.broker || 'VALETAX',
+      brokerServer: tradingAccount.brokerServer || 'Valetax-Live',
       symbol: canonicalSymbol,
       canonicalSymbol: canonicalSymbol,
       brokerSymbol: brokerSymbol,
@@ -208,7 +208,7 @@ tradeRouter.post('/execute', requireAuth, async (req: any, res: any) => {
     return res.json({
       success: true,
       code: 'ORDER_DISPATCHED',
-      message: 'ORDER DISPATCHED ✓',
+      message: 'ORDER DISPATCHED âœ“',
       status: 'PENDING MT5 EXECUTION',
       mode: MT5_EXECUTION_MODE,
       targetWorkerId: tradingAccount.workerId,
@@ -406,3 +406,4 @@ tradeRouter.post('/clear', (_req, res) => {
     });
   }
 });
+

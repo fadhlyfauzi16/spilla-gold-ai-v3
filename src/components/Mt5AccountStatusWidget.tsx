@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Link2,
   Server,
@@ -258,8 +258,8 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
               </div>
               <p className="text-[10px] text-gray-400">
                 Broker:{' '}
-                <strong className="text-white">{account?.broker || 'AIMS'}</strong> • Server:{' '}
-                <strong className="text-white">{account?.brokerServer}</strong> • Curr:{' '}
+                <strong className="text-white">{account?.broker || 'VALETAX'}</strong> â€¢ Server:{' '}
+                <strong className="text-white">{account?.brokerServer}</strong> â€¢ Curr:{' '}
                 <strong className="text-[#E5B842]">{account?.currency || (isCent ? 'USC' : 'USD')}</strong>
               </p>
             </div>
@@ -316,7 +316,7 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
               </span>
               {isCent && (
                 <span className="text-[10px] text-gray-400 font-mono block">
-                  ≈ {balanceInfo.usdFormatted}
+                  â‰ˆ {balanceInfo.usdFormatted}
                 </span>
               )}
             </div>
@@ -334,7 +334,7 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
               </span>
               {isCent && (
                 <span className="text-[10px] text-emerald-300/80 font-mono block">
-                  ≈ {equityInfo.usdFormatted}
+                  â‰ˆ {equityInfo.usdFormatted}
                 </span>
               )}
             </div>
@@ -366,7 +366,7 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
                         rawProfit! >= 0 ? 'text-emerald-400/80' : 'text-rose-400/80'
                       }`}
                     >
-                      ≈ {floatingInfo.usdFormatted}
+                      â‰ˆ {floatingInfo.usdFormatted}
                     </span>
                   )}
                 </>
@@ -403,7 +403,7 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
               <span className="text-cyan-400 font-mono font-extrabold text-xs sm:text-sm block">
                 {marginLevel !== null && marginLevel > 0
                   ? `${marginLevel.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-                  : '—'}
+                  : 'â€”'}
               </span>
               <span className="text-[10px] text-gray-500 font-mono block">
                 Leverage: 1:{account?.leverage || 100}
@@ -454,4 +454,5 @@ export const Mt5AccountStatusWidget: React.FC<Mt5AccountStatusWidgetProps> = ({
     </>
   );
 };
+
 

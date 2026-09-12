@@ -24,10 +24,12 @@ import {
   Coins,
   Cpu,
   Terminal,
+  Send,
 } from 'lucide-react';
 import { AuthUser, AdminStats, UserRole, UserStatus, TraderLoginRecord } from '../types';
 import { AdminCreditManagementView } from './AdminCreditManagementView';
 import { AdminMt5ProvisioningView } from './AdminMt5ProvisioningView';
+import { TelegramGatewayView } from './TelegramGatewayView';
 
 interface AdminDashboardViewProps {
   currentUser: AuthUser;
@@ -42,7 +44,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   onNavigateToEngine,
   onLogout,
 }) => {
-  const [activeTab, setActiveTab] = useState<'USERS' | 'MT5_PROVISIONING' | 'TRADER_LOGINS' | 'AI_CREDITS'>('USERS');
+  const [activeTab, setActiveTab] = useState<
+    | 'USERS'
+    | 'MT5_PROVISIONING'
+    | 'TRADER_LOGINS'
+    | 'AI_CREDITS'
+    | 'TELEGRAM_GATEWAY'
+  >('USERS');
   const [pendingTopUpCount, setPendingTopUpCount] = useState<number>(0);
   const [waitingMt5Count, setWaitingMt5Count] = useState<number>(0);
   const [stats, setStats] = useState<AdminStats>({
@@ -423,6 +431,22 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </span>
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('TELEGRAM_GATEWAY')}
+            className={`px-5 py-3 text-xs font-black rounded-t-xl transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'TELEGRAM_GATEWAY'
+                ? 'bg-[#111622] text-[#E5B842] border-t-2 border-x border-[#E5B842]'
+                : 'text-gray-400 hover:text-white bg-gray-900/50 border border-transparent'
+            }`}
+          >
+            <Send className="w-4 h-4 text-sky-400" />
+            <span>TELEGRAM GATEWAY</span>
+            <span className="px-2 py-0.5 rounded-full text-[9px] bg-sky-500/10 text-sky-400 border border-sky-500/30">
+              BOT
+            </span>
+          </button>
         </div>
 
         {/* 3. TAB 1: TABEL USER MANAGEMENT */}
@@ -775,6 +799,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <AdminCreditManagementView authToken={authToken} />
           </div>
         )}
+
+        {/* TELEGRAM GATEWAY */}
+        {activeTab === 'TELEGRAM_GATEWAY' && (
+          <div className="rounded-b-2xl rounded-tr-2xl bg-[#111622] border border-gray-800 p-6 shadow-xl">
+            <TelegramGatewayView authToken={authToken} />
+          </div>
+        )}
+
+        
       </div>
     </div>
   );

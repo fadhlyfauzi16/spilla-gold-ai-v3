@@ -285,6 +285,12 @@ export class TechnicalEngine {
     return 'RANGE';
   }
 
+  /** Calculate an EMA using ONLY the candles supplied for a specific timeframe. */
+  private calculateEmaForTimeframe(candles: any[], period: number, fallback: number): number {
+    const value = this.calculateEmaSeries(candles, period);
+    return Number((value ?? fallback).toFixed(2));
+  }
+
   public getStructuredCapture(
     symbol: string = 'XAUUSD',
     timeframe: string = 'H1',
@@ -739,47 +745,78 @@ export class TechnicalEngine {
     const m5Struct = getTfStructure(candlesM5, 1.8 * tfScaleFactor);
     const m1Struct = getTfStructure(candlesM1, 0.9 * tfScaleFactor);
 
-    const d1Trend: 'BULLISH' | 'BEARISH' | 'RANGE' = currentPrice > calculateEma(200) ? 'BULLISH' : 'BEARISH';
-    const h4Trend: 'BULLISH' | 'BEARISH' | 'RANGE' = currentPrice > calculateEma(100) ? 'BULLISH' : 'BEARISH';
-    const h1Trend: 'BULLISH' | 'BEARISH' | 'RANGE' = currentPrice > calculateEma(50) ? 'BULLISH' : 'BEARISH';
-    const m30Trend: 'BULLISH' | 'BEARISH' | 'RANGE' = currentPrice > calculateEma(30) ? 'BULLISH' : 'BEARISH';
-    const m15Trend: 'BULLISH' | 'BEARISH' | 'TRANSITION' = rsiSignal === 'BULLISH' ? 'BULLISH' : rsiSignal === 'BEARISH' ? 'BEARISH' : 'TRANSITION';
-    const m10Trend: 'BULLISH' | 'BEARISH' | 'TRANSITION' = rsiSignal === 'BULLISH' ? 'BULLISH' : rsiSignal === 'BEARISH' ? 'BEARISH' : 'TRANSITION';
-    const m5Trend: 'BULLISH' | 'BEARISH' | 'TRANSITION' = (emaResult?.slope === 'RISING' || rsiSignal === 'BULLISH') ? 'BULLISH' : 'BEARISH';
-    const m1Trend: 'BULLISH' | 'BEARISH' | 'TRANSITION' = (emaResult?.slope === 'RISING') ? 'BULLISH' : 'BEARISH';
+    // IMPORTANT: Every timeframe below is calculated from its OWN candle series.
+    // This prevents D1/H4/H1/M15/M5/M1 from inheriting the selected timeframe's EMA/RSI bias.
+    const d1Trend = this.trendFromCandles(candlesD1);
+    const h4Trend = this.trendFromCandles(candlesH4);
+    const h1Trend = this.trendFromCandles(candlesH1);
+    const m30Trend = this.trendFromCandles(candlesM30);
+    const m15Trend = this.trendFromCandles(candlesM15);
+    const m10Trend = this.trendFromCandles(candlesM10);
+    const m5Trend = this.trendFromCandles(candlesM5);
+    const m1Trend = this.trendFromCandles(candlesM1);
+
+    const d1Ema10 = this.calculateEmaForTimeframe(candlesD1, 10, currentPrice);
+    const d1Ema20 = this.calculateEmaForTimeframe(candlesD1, 20, currentPrice);
+    const d1Ema50 = this.calculateEmaForTimeframe(candlesD1, 50, currentPrice);
+    const d1Ema200 = this.calculateEmaForTimeframe(candlesD1, 200, currentPrice);
+
+    const h4Ema20 = this.calculateEmaForTimeframe(candlesH4, 20, currentPrice);
+    const h4Ema50 = this.calculateEmaForTimeframe(candlesH4, 50, currentPrice);
+    const h4Ema200 = this.calculateEmaForTimeframe(candlesH4, 200, currentPrice);
+
+    const h1Ema20 = this.calculateEmaForTimeframe(candlesH1, 20, currentPrice);
+    const h1Ema50 = this.calculateEmaForTimeframe(candlesH1, 50, currentPrice);
+    const h1Ema200 = this.calculateEmaForTimeframe(candlesH1, 200, currentPrice);
+
+    const d1Rsi = this.calculateRsiSeries(candlesD1, 14);
+    const h4Rsi = this.calculateRsiSeries(candlesH4, 14);
+    const h1Rsi = this.calculateRsiSeries(candlesH1, 14);
+    const m15Rsi = this.calculateRsiSeries(candlesM15, 14);
+    const m5Rsi = this.calculateRsiSeries(candlesM5, 14);
+    const m1Rsi = this.calculateRsiSeries(candlesM1, 14);
 
     const D1_Data: TimeframeTechnicalData = {
       trend: d1Trend,
-      ema10: calculateEma(10),
-      ema20: calculateEma(20),
-      ema50: calculateEma(50),
-      ema200: calculateEma(200),
+      ema10: d1Ema10,
+      ema20: d1Ema20,
+      ema50: d1Ema50,
+      ema200: d1Ema200,
       support: d1Struct.support,
       resistance: d1Struct.resistance,
       swingHigh: d1Struct.swingHigh,
       swingLow: d1Struct.swingLow,
+      rsi14: d1Rsi ?? undefined,
     };
 
     const H4_Data: TimeframeTechnicalData = {
       trend: h4Trend,
+      ema20: h4Ema20,
+      ema50: h4Ema50,
+      ema200: h4Ema200,
       support: h4Struct.support,
       resistance: h4Struct.resistance,
       swingHigh: h4Struct.swingHigh,
       swingLow: h4Struct.swingLow,
+      rsi14: h4Rsi ?? undefined,
     };
 
     const H1_Data: TimeframeTechnicalData = {
       trend: h1Trend,
-      ema20: calculateEma(20),
-      ema50: calculateEma(50),
+      ema20: h1Ema20,
+      ema50: h1Ema50,
+      ema200: h1Ema200,
       support: h1Struct.support,
       resistance: h1Struct.resistance,
       swingHigh: h1Struct.swingHigh,
       swingLow: h1Struct.swingLow,
+      rsi14: h1Rsi ?? undefined,
     };
 
     const M30_Data: TimeframeTechnicalData = {
       trend: m30Trend,
+      ema20: this.calculateEmaForTimeframe(candlesM30, 20, currentPrice),
+      ema50: this.calculateEmaForTimeframe(candlesM30, 50, currentPrice),
       support: m30Struct.support,
       resistance: m30Struct.resistance,
       swingHigh: m30Struct.swingHigh,
@@ -788,49 +825,63 @@ export class TechnicalEngine {
 
     const M15_Data: TimeframeTechnicalData = {
       trend: m15Trend,
+      ema10: this.calculateEmaForTimeframe(candlesM15, 10, currentPrice),
+      ema20: this.calculateEmaForTimeframe(candlesM15, 20, currentPrice),
+      ema50: this.calculateEmaForTimeframe(candlesM15, 50, currentPrice),
       swingHigh: m15Struct.swingHigh,
       swingLow: m15Struct.swingLow,
       support: m15Struct.support,
       resistance: m15Struct.resistance,
-      rsi14: rsiResult?.value || 64.2,
+      rsi14: m15Rsi ?? undefined,
       vwap: vwapResult?.value || currentPrice,
     };
 
     const M10_Data: TimeframeTechnicalData = {
       trend: m10Trend,
+      ema20: this.calculateEmaForTimeframe(candlesM10, 20, currentPrice),
+      ema50: this.calculateEmaForTimeframe(candlesM10, 50, currentPrice),
       swingHigh: m10Struct.swingHigh,
       swingLow: m10Struct.swingLow,
       support: m10Struct.support,
       resistance: m10Struct.resistance,
-      rsi14: rsiResult?.value || 64.2,
-      vwap: vwapResult?.value || currentPrice,
+      rsi14: this.calculateRsiSeries(candlesM10, 14) ?? undefined,
+      vwap: currentPrice,
     };
 
     const M5_Data: TimeframeTechnicalData = {
       trend: m5Trend,
+      ema10: this.calculateEmaForTimeframe(candlesM5, 10, currentPrice),
+      ema20: this.calculateEmaForTimeframe(candlesM5, 20, currentPrice),
+      ema50: this.calculateEmaForTimeframe(candlesM5, 50, currentPrice),
       swingHigh: m5Struct.swingHigh,
       swingLow: m5Struct.swingLow,
       support: m5Struct.support,
       resistance: m5Struct.resistance,
-      rsi14: rsiResult?.value || 64.2,
-      vwap: vwapResult?.value || currentPrice,
+      rsi14: m5Rsi ?? undefined,
+      vwap: currentPrice,
     };
 
     const M1_Data: TimeframeTechnicalData = {
       trend: m1Trend,
+      ema10: this.calculateEmaForTimeframe(candlesM1, 10, currentPrice),
+      ema20: this.calculateEmaForTimeframe(candlesM1, 20, currentPrice),
+      ema50: this.calculateEmaForTimeframe(candlesM1, 50, currentPrice),
       swingHigh: m1Struct.swingHigh,
       swingLow: m1Struct.swingLow,
       support: m1Struct.support,
       resistance: m1Struct.resistance,
-      rsi14: rsiResult?.value || 64.2,
-      vwap: vwapResult?.value || currentPrice,
+      rsi14: m1Rsi ?? undefined,
+      vwap: currentPrice,
     };
 
+    const toSentiment = (trend: 'BULLISH' | 'BEARISH' | 'RANGE' | 'TRANSITION'): SentimentType =>
+      trend === 'BULLISH' ? 'BULLISH' : trend === 'BEARISH' ? 'BEARISH' : 'NEUTRAL';
+
     const timeframeAnalysis = {
-      M15: (m15Trend === 'BULLISH' ? 'BULLISH' : m15Trend === 'BEARISH' ? 'BEARISH' : 'NEUTRAL') as SentimentType,
-      H1: (h1Trend === 'BULLISH' ? 'BULLISH' : h1Trend === 'BEARISH' ? 'BEARISH' : 'NEUTRAL') as SentimentType,
-      H4: (h4Trend === 'BULLISH' ? 'BULLISH' : h4Trend === 'BEARISH' ? 'BEARISH' : 'NEUTRAL') as SentimentType,
-      D1: (d1Trend === 'BULLISH' ? 'BULLISH' : d1Trend === 'BEARISH' ? 'BEARISH' : 'NEUTRAL') as SentimentType,
+      M15: toSentiment(m15Trend),
+      H1: toSentiment(h1Trend),
+      H4: toSentiment(h4Trend),
+      D1: toSentiment(d1Trend),
     };
 
     return {

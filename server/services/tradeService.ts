@@ -1,7 +1,7 @@
 ﻿import { TradeExecutionOrder, TradeOrderStatus } from '../../src/types.js';
 import { symbolService } from './symbolService.js';
 
-export const MT5_EXECUTION_MODE: 'TEST' | 'LIVE' = 'TEST';
+export const MT5_EXECUTION_MODE: 'TEST' | 'LIVE' = 'LIVE';
 export const CLAIM_TIMEOUT_MS = 60 * 1000; // 60 seconds claim timeout protection
 
 // Pre-authorized MT5 accounts (demo & live)

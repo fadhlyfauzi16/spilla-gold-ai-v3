@@ -61,6 +61,36 @@ class MarketDataService {
   private readonly supportedSymbols = ['XAUUSD', 'BTCUSD', 'EURUSD', 'GBPUSD', 'USDJPY'];
   private readonly supportedTimeframes = ['M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN'];
 
+  /** MT5 candle payload may be a single timeframe array or a timeframe-keyed map. */
+  private isCandleMap(value: unknown): value is Record<string, Candle[]> {
+    return Boolean(value && !Array.isArray(value) && typeof value === 'object');
+  }
+
+  private normalizeMt5Candles(input: unknown, digits: number): Candle[] {
+    if (!Array.isArray(input)) return [];
+    return input
+      .map((raw: any) => ({
+        time: typeof raw?.time === 'string' ? Math.floor(new Date(raw.time).getTime() / 1000) : Number(raw?.time),
+        open: Number(raw?.open),
+        high: Number(raw?.high),
+        low: Number(raw?.low),
+        close: Number(raw?.close),
+        volume: Number(raw?.volume ?? raw?.vol ?? raw?.tick_volume ?? 0),
+      }))
+      .filter((c) => Number.isFinite(c.time) && c.time > 0 && [c.open,c.high,c.low,c.close].every(Number.isFinite))
+      .map((c) => ({ ...c, open: Number(c.open.toFixed(digits)), high: Number(c.high.toFixed(digits)), low: Number(c.low.toFixed(digits)), close: Number(c.close.toFixed(digits)) }))
+      .sort((a, b) => a.time - b.time);
+  }
+
+  private replaceTimeframeCandles(symbol: string, timeframe: string, candles: Candle[]): void {
+    if (!this.supportedTimeframes.includes(timeframe) || candles.length < 20) return;
+    const existing = this.symbolCandles.get(symbol) || {};
+    existing[timeframe] = candles.slice(-500);
+    this.symbolCandles.set(symbol, existing);
+    const cache = this.caches.get(symbol);
+    if (cache) cache.candles = existing;
+  }
+
   private symbolPrices: Map<string, number> = new Map([
     ['XAUUSD', 4470.00],
     ['BTCUSD', 77284.50],
@@ -472,11 +502,12 @@ class MarketDataService {
 
     const priceDelta = Math.abs(roundedPrice - cache.currentPrice);
     const threshold = canonical === 'BTCUSD' ? 200 : canonical.includes('XAU') ? 5 : 0.005;
-    if (priceDelta > threshold) {
-      const candles = this.buildDeterministicBaseCandles(roundedPrice, digits);
-      this.symbolCandles.set(canonical, candles);
-      cache.candles = candles;
-    }
+    // NEVER rebuild historical candles just because the live price moved.
+    // Rebuilding here destroys market history and replaces it with synthetic data.
+    // Historical candles may only be initialized at startup or replaced by a real
+    // MT5 candle payload in updateFromMt5Quote().
+    void priceDelta;
+    void threshold;
     this.syncLatestCandleClose(roundedPrice, canonical);
   }
 
@@ -489,7 +520,8 @@ class MarketDataService {
     ask?: number;
     price?: number;
     spread?: number;
-    candles?: Candle[];
+    timeframe?: string;
+    candles?: Candle[] | Record<string, Candle[]>;
   }): void {
     const rawPrice = params.price || (params.bid && params.ask ? (params.bid + params.ask) / 2 : undefined);
     if (rawPrice !== undefined) {
@@ -505,6 +537,23 @@ class MarketDataService {
       cache.isAvailable = true;
       cache.liveMarket.symbol = canonical;
       this.symbolPrices.set(canonical, normalizedPrice);
+
+      // Prefer REAL MT5 historical candles whenever the EA supplies them.
+      // This replaces synthetic candles for the supplied timeframe(s).
+      if (params.candles) {
+        if (this.isCandleMap(params.candles)) {
+          for (const [tf, rawCandles] of Object.entries(params.candles)) {
+            const normalizedCandles = this.normalizeMt5Candles(rawCandles, digits);
+            this.replaceTimeframeCandles(canonical, tf.toUpperCase(), normalizedCandles);
+          }
+        } else {
+          const tf = String(params.timeframe || 'H1').toUpperCase();
+          const normalizedCandles = this.normalizeMt5Candles(params.candles, digits);
+          this.replaceTimeframeCandles(canonical, tf, normalizedCandles);
+        }
+        const currentSet = this.symbolCandles.get(canonical);
+        if (currentSet) cache.candles = currentSet;
+      }
 
       if (params.spread !== undefined) {
         cache.liveMarket.spread = Number(params.spread.toFixed(digits));

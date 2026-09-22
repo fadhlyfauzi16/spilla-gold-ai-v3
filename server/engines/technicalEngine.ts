@@ -170,6 +170,13 @@ export class TechnicalEngine {
     if (capture.swingStructure.marketStructure === 'BULLISH') score += 10;
     else if (capture.swingStructure.marketStructure === 'BEARISH') score -= 10;
 
+    // Multi-timeframe alignment: require independent timeframe evidence, not duplicated values.
+    const mtf = [capture.timeframeAnalysis.D1, capture.timeframeAnalysis.H4, capture.timeframeAnalysis.H1, capture.timeframeAnalysis.M15];
+    const bullishMtf = mtf.filter((x) => x === 'BULLISH').length;
+    const bearishMtf = mtf.filter((x) => x === 'BEARISH').length;
+    if (bullishMtf >= 3) score += 8;
+    else if (bearishMtf >= 3) score -= 8;
+
     score = Math.min(98, Math.max(10, score));
     const status: SentimentType = score >= 65 ? 'BULLISH' : score <= 35 ? 'BEARISH' : 'NEUTRAL';
 
@@ -202,6 +209,80 @@ export class TechnicalEngine {
       timeframeAnalysis: capture.timeframeAnalysis,
       reasoning,
     };
+  }
+
+  /** Calculate EMA from a candle series. Returns null when history is insufficient. */
+  private calculateEmaSeries(candles: any[], period: number): number | null {
+    if (!candles || candles.length < period) return null;
+    const closes = candles.map((c) => Number(c.close)).filter(Number.isFinite);
+    if (closes.length < period) return null;
+    const k = 2 / (period + 1);
+    let ema = closes[0];
+    for (let i = 1; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
+    return ema;
+  }
+
+  private calculateRsiSeries(candles: any[], period = 14): number | null {
+    if (!candles || candles.length < period + 1) return null;
+    const closes = candles.map((c) => Number(c.close)).filter(Number.isFinite);
+    if (closes.length < period + 1) return null;
+    let gain = 0;
+    let loss = 0;
+    for (let i = closes.length - period; i < closes.length; i++) {
+      const d = closes[i] - closes[i - 1];
+      if (d >= 0) gain += d; else loss += Math.abs(d);
+    }
+    const avgGain = gain / period;
+    const avgLoss = loss / period;
+    if (avgLoss === 0) return avgGain > 0 ? 100 : 50;
+    const rs = avgGain / avgLoss;
+    return Number((100 - 100 / (1 + rs)).toFixed(2));
+  }
+
+  private calculateAtrSeries(candles: any[], period = 14): number | null {
+    if (!candles || candles.length < period + 1) return null;
+    let trSum = 0;
+    for (let i = candles.length - period; i < candles.length; i++) {
+      const h = Number(candles[i].high);
+      const l = Number(candles[i].low);
+      const pc = Number(candles[i - 1].close);
+      if (![h, l, pc].every(Number.isFinite)) return null;
+      trSum += Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+    }
+    return Number((trSum / period).toFixed(4));
+  }
+
+  private trendFromCandles(candles: any[]): 'BULLISH' | 'BEARISH' | 'RANGE' {
+    if (!candles || candles.length < 50) return 'RANGE';
+    const price = Number(candles[candles.length - 1].close);
+    const ema20 = this.calculateEmaSeries(candles, 20);
+    const ema50 = this.calculateEmaSeries(candles, 50);
+    if (ema20 === null || ema50 === null || !Number.isFinite(price)) return 'RANGE';
+    const distance = Math.abs(ema20 - ema50);
+    const atr = this.calculateAtrSeries(candles, 14) || 0;
+    // Avoid calling tiny EMA separation a trend in low-volatility/ranging markets.
+    if (atr > 0 && distance < atr * 0.10) return 'RANGE';
+    if (price > ema20 && ema20 > ema50) return 'BULLISH';
+    if (price < ema20 && ema20 < ema50) return 'BEARISH';
+    return 'RANGE';
+  }
+
+  private structureFromCandles(candles: any[]): 'BULLISH' | 'BEARISH' | 'RANGE' | 'TRANSITION' {
+    if (!candles || candles.length < 12) return 'TRANSITION';
+    const recent = candles.slice(-20);
+    const highs = recent.map((c) => Number(c.high)).filter(Number.isFinite);
+    const lows = recent.map((c) => Number(c.low)).filter(Number.isFinite);
+    if (highs.length < 8 || lows.length < 8) return 'TRANSITION';
+    const half = Math.floor(highs.length / 2);
+    const earlyHigh = Math.max(...highs.slice(0, half));
+    const lateHigh = Math.max(...highs.slice(half));
+    const earlyLow = Math.min(...lows.slice(0, half));
+    const lateLow = Math.min(...lows.slice(half));
+    const atr = this.calculateAtrSeries(recent, 14) || 0;
+    const threshold = atr * 0.20;
+    if (lateHigh > earlyHigh + threshold && lateLow > earlyLow + threshold) return 'BULLISH';
+    if (lateHigh < earlyHigh - threshold && lateLow < earlyLow - threshold) return 'BEARISH';
+    return 'RANGE';
   }
 
   public getStructuredCapture(
@@ -317,23 +398,12 @@ export class TechnicalEngine {
     let rsiResult = undefined;
     let rsiSignal: SentimentType = 'BULLISH';
     if (isInc('RSI')) {
-      let rsiValue = 64.2;
-      let rsiDirection: 'RISING' | 'FALLING' | 'FLAT' = 'RISING';
-      if (n >= 15) {
-        let gains = 0;
-        let losses = 0;
-        for (let i = n - 14; i < n; i++) {
-          const diff = closes[i] - closes[i - 1];
-          if (diff >= 0) gains += diff;
-          else losses += Math.abs(diff);
-        }
-        const avgGain = gains / 14;
-        const avgLoss = losses / 14;
-        const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-        rsiValue = Number((100 - 100 / (1 + rs)).toFixed(1));
-        
-        const prevDiff = closes[n - 1] - closes[n - 2];
-        rsiDirection = prevDiff > 0 ? 'RISING' : prevDiff < 0 ? 'FALLING' : 'FLAT';
+      const calculatedRsi = this.calculateRsiSeries(candlesSelected, 14);
+      let rsiValue = calculatedRsi ?? 50;
+      let rsiDirection: 'RISING' | 'FALLING' | 'FLAT' = 'FLAT';
+      if (n >= 2) {
+        const prevRsi = this.calculateRsiSeries(candlesSelected.slice(0, -1), 14);
+        rsiDirection = prevRsi === null ? 'FLAT' : rsiValue > prevRsi ? 'RISING' : rsiValue < prevRsi ? 'FALLING' : 'FLAT';
       }
 
       let rsiCondition: 'OVERBOUGHT' | 'OVERSOLD' | 'BULLISH_MOMENTUM' | 'BEARISH_MOMENTUM' | 'NEUTRAL' = 'NEUTRAL';
@@ -355,13 +425,35 @@ export class TechnicalEngine {
     // 3. MACD (12, 26, 9)
     let macdResult = undefined;
     if (isInc('MACD')) {
-      const ema12 = calculateEma(12);
-      const ema26 = calculateEma(26);
+      const ema12 = this.calculateEmaSeries(candlesSelected, 12) ?? currentPrice;
+      const ema26 = this.calculateEmaSeries(candlesSelected, 26) ?? currentPrice;
       const macdLine = Number((ema12 - ema26).toFixed(digits));
-      const signalLine = Number((macdLine * 0.82).toFixed(digits));
+      // Build a real MACD series and calculate its 9-period EMA signal line.
+      const closesForMacd = candlesSelected.map((c) => Number(c.close)).filter(Number.isFinite);
+      const macdSeries: number[] = [];
+      for (let i = 0; i < closesForMacd.length; i++) {
+        const slice = closesForMacd.slice(0, i + 1);
+        if (slice.length < 26) continue;
+        const k12 = 2 / 13;
+        const k26 = 2 / 27;
+        let e12 = slice[0];
+        let e26 = slice[0];
+        for (let j = 1; j < slice.length; j++) {
+          e12 = slice[j] * k12 + e12 * (1 - k12);
+          e26 = slice[j] * k26 + e26 * (1 - k26);
+        }
+        macdSeries.push(e12 - e26);
+      }
+      let signalLine = macdLine;
+      if (macdSeries.length >= 9) {
+        const k9 = 2 / 10;
+        signalLine = macdSeries[0];
+        for (let i = 1; i < macdSeries.length; i++) signalLine = macdSeries[i] * k9 + signalLine * (1 - k9);
+      }
+      signalLine = Number(signalLine.toFixed(digits));
       const histogram = Number((macdLine - signalLine).toFixed(digits));
-      const macdSignal: SentimentType = macdLine > signalLine && histogram > 0 ? 'BULLISH' : macdLine < signalLine && histogram < 0 ? 'BEARISH' : 'NEUTRAL';
-      const crossover = macdLine > signalLine ? (histogram > 0.05 * currentPrice ? 'BULLISH_EXPANSION' : 'BULLISH_CROSSOVER') : (histogram < -0.05 * currentPrice ? 'BEARISH_EXPANSION' : 'BEARISH_CROSSOVER');
+      const macdSignal: SentimentType = macdLine > signalLine ? 'BULLISH' : macdLine < signalLine ? 'BEARISH' : 'NEUTRAL';
+      const crossover = macdLine > signalLine ? (histogram > 0 ? 'BULLISH_EXPANSION' : 'BULLISH_CROSSOVER') : macdLine < signalLine ? (histogram < 0 ? 'BEARISH_EXPANSION' : 'BEARISH_CROSSOVER') : 'NEUTRAL';
       macdResult = {
         macdLine,
         signalLine,
@@ -410,9 +502,26 @@ export class TechnicalEngine {
     // 5. ADX 14
     let adxResult = undefined;
     if (isInc('ADX')) {
-      const adxValue = 32.5;
-      const plusDI = 28.4;
-      const minusDI = 14.2;
+      let adxValue = 20;
+      let plusDI = 0;
+      let minusDI = 0;
+      if (n >= 30) {
+        let trSum = 0, plusDmSum = 0, minusDmSum = 0;
+        for (let i = n - 14; i < n; i++) {
+          const upMove = highs[i] - highs[i - 1];
+          const downMove = lows[i - 1] - lows[i];
+          const tr = Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1]));
+          trSum += tr;
+          if (upMove > downMove && upMove > 0) plusDmSum += upMove;
+          if (downMove > upMove && downMove > 0) minusDmSum += downMove;
+        }
+        if (trSum > 0) {
+          plusDI = Number((100 * plusDmSum / trSum).toFixed(2));
+          minusDI = Number((100 * minusDmSum / trSum).toFixed(2));
+          const dx = plusDI + minusDI > 0 ? 100 * Math.abs(plusDI - minusDI) / (plusDI + minusDI) : 0;
+          adxValue = Number(dx.toFixed(2));
+        }
+      }
       let trendStrength: 'WEAK_OR_RANGE' | 'DEVELOPING_TREND' | 'STRONG_TREND' | 'VERY_STRONG_TREND' = 'STRONG_TREND';
       if (adxValue < 20) trendStrength = 'WEAK_OR_RANGE';
       else if (adxValue <= 25) trendStrength = 'DEVELOPING_TREND';
@@ -718,10 +827,10 @@ export class TechnicalEngine {
     };
 
     const timeframeAnalysis = {
-      M15: (rsiSignal === 'BULLISH' ? 'BULLISH' : rsiSignal === 'BEARISH' ? 'BEARISH' : 'NEUTRAL') as SentimentType,
-      H1: (currentPrice > calculateEma(50) ? 'BULLISH' : 'BEARISH') as SentimentType,
-      H4: (currentPrice > calculateEma(200) ? 'BULLISH' : 'BEARISH') as SentimentType,
-      D1: (currentPrice > calculateEma(200) ? 'BULLISH' : 'BEARISH') as SentimentType,
+      M15: (m15Trend === 'BULLISH' ? 'BULLISH' : m15Trend === 'BEARISH' ? 'BEARISH' : 'NEUTRAL') as SentimentType,
+      H1: (h1Trend === 'BULLISH' ? 'BULLISH' : h1Trend === 'BEARISH' ? 'BEARISH' : 'NEUTRAL') as SentimentType,
+      H4: (h4Trend === 'BULLISH' ? 'BULLISH' : h4Trend === 'BEARISH' ? 'BEARISH' : 'NEUTRAL') as SentimentType,
+      D1: (d1Trend === 'BULLISH' ? 'BULLISH' : d1Trend === 'BEARISH' ? 'BEARISH' : 'NEUTRAL') as SentimentType,
     };
 
     return {

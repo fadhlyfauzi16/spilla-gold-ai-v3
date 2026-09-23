@@ -2959,6 +2959,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                   <th className="py-2.5 px-3">Signal ID</th>
                   <th className="py-2.5 px-3">Symbol</th>
                   <th className="py-2.5 px-3">Side</th>
+                  <th className="py-2.5 px-3">Mode / TF</th>
                   <th className="py-2.5 px-3">Lot</th>
                   <th className="py-2.5 px-3">Entry</th>
                   <th className="py-2.5 px-3">SL</th>
@@ -2971,6 +2972,9 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
               <tbody className="divide-y divide-gray-800/60">
                 {executionQueue.map((item) => {
                   const isBuy = item.side === 'BUY';
+                  const displayTradingStyle = item.tradingStyle || '—';
+                  const displayTimeframe = item.timeframe || '—';
+                  const displayModeTimeframe = `${displayTradingStyle}/${displayTimeframe}`;
                   const displayTime = item.createdAt
                     ? new Date(item.createdAt).toLocaleTimeString('en-US', {
                         hour12: false,
@@ -2999,6 +3003,22 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                           {item.side}
                         </span>
                       </td>
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <div className="flex flex-col gap-0.5">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold font-mono w-max border ${
+                              item.tradingStyle === 'SCALPING'
+                                ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                                : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+                            }`}
+                          >
+                            {displayTradingStyle}
+                          </span>
+                          <span className="text-[9px] text-gray-400 font-mono">
+                            TF: {displayTimeframe}
+                          </span>
+                        </div>
+                      </td>
                       <td className="py-3 px-3 font-mono text-blue-400 font-black whitespace-nowrap">{item.lot.toFixed(2)}</td>
                       <td className="py-3 px-3 font-mono text-white whitespace-nowrap">${item.entryPrice.toFixed(2)}</td>
                       <td className="py-3 px-3 font-mono text-rose-400 whitespace-nowrap">${item.stopLoss.toFixed(2)}</td>
@@ -3011,7 +3031,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
                               PENDING
                             </span>
-                            <span className="text-[9px] text-gray-400">Awaiting MT5 EA Claim</span>
+                            <span className="text-[9px] text-gray-400">Awaiting MT5 EA Claim • {displayModeTimeframe}</span>
                           </div>
                         )}
                         {item.status === 'CLAIMED' && (
@@ -3021,7 +3041,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                               CLAIMED
                             </span>
                             <span className="text-[9px] text-purple-300/80 font-mono">
-                              By {item.claimedBy || 'MT5_EA'}
+                              By {item.claimedBy || 'MT5_EA'} • {displayModeTimeframe}
                             </span>
                           </div>
                         )}
@@ -3031,7 +3051,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
                               PROCESSING
                             </span>
-                            <span className="text-[9px] text-cyan-300/80">Routing execution...</span>
+                            <span className="text-[9px] text-cyan-300/80">Routing execution... • {displayModeTimeframe}</span>
                           </div>
                         )}
                         {item.status === 'EXECUTED' && (
@@ -3041,7 +3061,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                               EXECUTED
                             </span>
                             <span className="text-[9px] text-emerald-300 font-mono">
-                              Ticket: #{item.mt5Ticket || '—'} • Fill: ${item.fillPrice ? item.fillPrice.toFixed(2) : item.entryPrice.toFixed(2)}
+                              Ticket: #{item.mt5Ticket || '—'} • Fill: ${item.fillPrice ? item.fillPrice.toFixed(2) : item.entryPrice.toFixed(2)} • {displayModeTimeframe}
                             </span>
                           </div>
                         )}
@@ -3052,7 +3072,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                               REJECTED
                             </span>
                             <span className="text-[9px] text-rose-300 font-mono">
-                              [{item.errorCode || 'REJECT'}] {item.errorMessage || 'Execution rejected by terminal'}
+                              [{item.errorCode || 'REJECT'}] {item.errorMessage || 'Execution rejected by terminal'} • {displayModeTimeframe}
                             </span>
                           </div>
                         )}
@@ -3063,7 +3083,7 @@ export const LiveAnalysisView: React.FC<LiveAnalysisViewProps> = ({
                               FAILED
                             </span>
                             <span className="text-[9px] text-red-300 font-mono">
-                              {item.errorMessage || 'Execution failure'}
+                              {item.errorMessage || 'Execution failure'} • {displayModeTimeframe}
                             </span>
                           </div>
                         )}
